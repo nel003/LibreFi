@@ -1,0 +1,8 @@
+pub mod index;
+pub mod status;
+pub mod play_pause;
+pub mod debug;
+pub mod init;
+pub mod admin;
+pub mod rates;
+pub mod redeem;

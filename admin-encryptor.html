@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>openfi Admin Encryptor</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f0f0f;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 12px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 560px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+    h1 { font-size: 1.1rem; color: #fff; letter-spacing: 0.05em; }
+    label { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 0.08em; display: block; margin-bottom: 0.4rem; }
+    input, textarea {
+      width: 100%;
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #e0e0e0;
+      font-size: 0.875rem;
+      padding: 0.65rem 0.9rem;
+      font-family: 'Consolas', monospace;
+      resize: vertical;
+    }
+    input:focus, textarea:focus { outline: none; border-color: #555; }
+    button {
+      background: #fff;
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    button:hover { opacity: 0.85; }
+    .result-box {
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 0.65rem 0.9rem;
+      font-family: 'Consolas', monospace;
+      font-size: 0.8rem;
+      color: #6ee7b7;
+      word-break: break-all;
+      min-height: 48px;
+      white-space: pre-wrap;
+    }
+    .copy-btn {
+      background: #1f1f1f;
+      color: #ccc;
+      border: 1px solid #333;
+      font-weight: 400;
+      font-size: 0.8rem;
+      padding: 0.5rem 0.9rem;
+      align-self: flex-start;
+    }
+    .hint { font-size: 0.75rem; color: #555; }
+    .error { color: #f87171; font-size: 0.8rem; }
+    .divider { border: none; border-top: 1px solid #222; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔐 openfi Admin Encryptor</h1>
+
+    <div>
+      <label>Secret Key</label>
+      <input id="key" type="text" value="arns_super_pogi_4ever" />
+      <p class="hint" style="margin-top:0.4rem">Must match ADMIN_SECRET_KEY in admin.rs</p>
+    </div>
+
+    <div>
+      <label>Rate Payload (JSON)</label>
+      <textarea id="payload" rows="5">{
+  "id": 1,
+  "price": 15.0,
+  "time": 3600,
+  "pause_attempts": 3
+}</textarea>
+    </div>
+
+    <button onclick="encrypt()">Encrypt → Base64</button>
+
+    <hr class="divider" />
+
+    <div>
+      <label>Encrypted Output (paste as "payload" value)</label>
+      <div class="result-box" id="output">—</div>
+      <button class="copy-btn" onclick="copy()" style="margin-top:0.5rem">Copy</button>
+    </div>
+
+    <div>
+      <label>Ready-to-send JSON body</label>
+      <div class="result-box" id="body-output">—</div>
+      <button class="copy-btn" onclick="copyBody()" style="margin-top:0.5rem">Copy Body</button>
+    </div>
+
+    <p id="status" class="hint"></p>
+  </div>
+
+  <script>
+    async function encrypt() {
+      const status = document.getElementById('status');
+      status.textContent = '';
+      status.className = 'hint';
+
+      try {
+        const keyStr = document.getElementById('key').value;
+        const payloadStr = document.getElementById('payload').value;
+
+        // Validate JSON
+        JSON.parse(payloadStr);
+
+        // Derive 32-byte key (pad with 0x00, truncate at 32)
+        const enc = new TextEncoder();
+        const rawKey = enc.encode(keyStr);
+        const keyBytes = new Uint8Array(32);
+        keyBytes.set(rawKey.slice(0, 32));
+
+        // Import key
+        const cryptoKey = await crypto.subtle.importKey(
+          'raw', keyBytes, 'AES-GCM', false, ['encrypt']
+        );
+
+        // Random 12-byte nonce
+        const nonce = crypto.getRandomValues(new Uint8Array(12));
+
+        // Encrypt
+        const ciphertext = await crypto.subtle.encrypt(
+          { name: 'AES-GCM', iv: nonce },
+          cryptoKey,
+          enc.encode(payloadStr)
+        );
+
+        // Combine: [nonce(12)] + [ciphertext]
+        const combined = new Uint8Array(12 + ciphertext.byteLength);
+        combined.set(nonce, 0);
+        combined.set(new Uint8Array(ciphertext), 12);
+
+        // Base64 encode
+        const b64 = btoa(String.fromCharCode(...combined));
+
+        document.getElementById('output').textContent = b64;
+        document.getElementById('body-output').textContent =
+          JSON.stringify({ payload: b64 }, null, 2);
+
+        status.textContent = '✓ Encrypted successfully';
+      } catch (e) {
+        status.textContent = '✗ ' + e.message;
+        status.className = 'error';
+      }
+    }
+
+    function copy() {
+      navigator.clipboard.writeText(document.getElementById('output').textContent);
+    }
+
+    function copyBody() {
+      navigator.clipboard.writeText(document.getElementById('body-output').textContent);
+    }
+  </script>
+</body>
+</html>
