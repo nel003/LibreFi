@@ -1,4 +1,4 @@
-use redb::{Database, ReadableTable, TableDefinition};
+use redb::{Database, TableDefinition};
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 

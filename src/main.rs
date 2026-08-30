@@ -4,7 +4,7 @@ mod utils;
 use network::server::Server;
 use routes::index::index;
 
-use crate::routes::{admin::admin, debug::debug, init::init, play_pause::play_pause, rates::rates, redeem::redeem, status::status};
+use crate::routes::{admin::admin, coin::coin, debug::debug, init::init, play_pause::play_pause, rates::rates, redeem::redeem, status::status};
 fn main() {
     let mut server = Server::new(80);
     utils::db::init_db("data.redb");
@@ -17,6 +17,7 @@ fn main() {
     admin(&mut server);
     rates(&mut server);
     redeem(&mut server);
+    coin(&mut server);
 
     server.run();
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import NumberFlow, { NumberFlowGroup } from "@number-flow/react";
+import type { UserType } from "../types/user";
 
 type NumberTickerProps = {
     seconds: number;
@@ -11,11 +12,6 @@ type NumberTickerProps = {
     showHours?: boolean;
 };
 
-/**
- * NumberTicker 03 - Time Chronometer
- * Specialized MM:DD:HH:MM:SS timer with per-segment rolling.
- * Automatically hides leading zero segments.
- */
 function NumberTicker({
     seconds,
     className,
@@ -94,19 +90,31 @@ function NumberTicker({
     );
 }
 
-const Timer = ({isPaused, timeSec}: {isPaused: boolean, timeSec: number}) => {
-    const [sec, setSec] = useState(timeSec);
+const Timer = ({ user }: { user: UserType | undefined }) => {
+    const [sec, setSec] = useState(0);
+
+    useEffect(() => {
+        (() => {
+            if (user) {
+                if (user.paused) {
+                    setSec(user.expires_on - user.paused_on)
+                    return;
+                }
+                setSec(user?.expires_on - user?.now)
+            }
+        })()
+    }, [user]);
 
     useEffect(() => {
         let timer = null;
-        if(!isPaused) {
+        if (user && !user.paused) {
             timer = setInterval(() => {
-            setSec((prev) => (prev > 0 ? prev - 1 : 0));
-        }, 1000);
+                setSec((prev) => (prev > 0 ? prev - 1 : 0));
+            }, 1000);
         }
 
         return () => clearInterval(timer || 0);
-    }, [isPaused]);
+    }, [user]);
 
     return (
         <div>

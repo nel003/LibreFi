@@ -19,6 +19,7 @@ Returns the stored user record for the requesting device. Called by the frontend
   {
     "name": "",
     "ip": "192.168.1.42",
+    "mac": "aa:bb:cc:dd:ee:ff",
     "paused": false,
     "pause_attempts": 0,
     "paused_on": 0,

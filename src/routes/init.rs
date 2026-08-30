@@ -29,6 +29,7 @@ pub fn init(server: &mut Server) {
 
                 if let Some(obj) = data.as_object_mut() {
                     obj.insert("now".to_string(), serde_json::json!(now));
+                    obj.insert("mac".to_string(), serde_json::json!(mac));
                 }
 
                 res.status = 200;

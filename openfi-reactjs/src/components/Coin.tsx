@@ -9,6 +9,7 @@ import {
 } from "../components/ui/dialog";
 import CircularProgress from "./ui/circleProgress";
 import { Button } from "./ui/button";
+import { toast } from "./ui/toast";
 
 function Progress({ MAX, timeSec, id, closeModal }: { MAX: number; timeSec: number; id: number; closeModal: () => void }) {
     const [progress, setProgress] = useState(100);
@@ -61,14 +62,28 @@ function Coin({ children }: { children: ReactElement }) {
         setIsOpen(false);
     }
 
+    async function handleCoin() {
+        const res = await fetch("http://localhost:8000/coin");
+        const json = await res.json();
+
+        if (!res.ok) {
+            toast.error("Coinslot is not available!", {
+                description: json.error,
+                position: "top-center"
+            })
+            return;
+        }
+        setIsOpen(true);
+    }
+
     return (
         <Dialog open={isOpen}>
-            <DialogTrigger onClick={() => setIsOpen(true)} render={children}>
+            <DialogTrigger onClick={handleCoin} render={children}>
                 Subscribe
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
-                    <span className="absolute right-2 top-2 block h-6 w-6 bg-popover z-40"/>
+                    <span className="absolute right-2 top-2 block h-6 w-6 bg-popover z-40" />
                     <DialogTitle>Insert Coins</DialogTitle>
                     <DialogDescription>
                         Click done after inserting coins.

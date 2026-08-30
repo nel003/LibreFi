@@ -1,12 +1,8 @@
 use std::collections::HashMap;
-use std::io::Read;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use tiny_http::{Header, Response as TinyResponse, Server as TinyServer};
 
 pub struct Request {
-    pub url: String,
-    pub query: String,
-    pub headers: HashMap<String, String>,
     pub body: Vec<u8>,
     pub ip: String,
 }
@@ -61,7 +57,7 @@ impl Server {
 
             let mut parts = raw_url.splitn(2, '?');
             let mut path = parts.next().unwrap_or("/").to_string();
-            let query = parts.next().unwrap_or("").to_string();
+            let _query = parts.next().unwrap_or("").to_string();
 
             if path.len() > 1 && path.ends_with('/') {
                 path.pop();
@@ -98,9 +94,6 @@ impl Server {
                 });
 
             let req = Request {
-                url: path.clone(),
-                query,
-                headers,
                 body,
                 ip,
             };
@@ -158,14 +151,24 @@ impl Server {
                 } else {
                     println!("   [!] No POST route found for '{}'", path);
                 }
+            } else if method == "options" {
+                res.status = 204;
+                res.body = Vec::new();
             }
 
-            let header =
+
+            let content_type_header =
                 Header::from_bytes(&b"Content-Type"[..], res.content_type.as_bytes()).unwrap();
+            let cors_origin = Header::from_bytes(&b"Access-Control-Allow-Origin"[..], &b"*"[..]).unwrap();
+            let cors_methods = Header::from_bytes(&b"Access-Control-Allow-Methods"[..], &b"GET, POST, OPTIONS"[..]).unwrap();
+            let cors_headers = Header::from_bytes(&b"Access-Control-Allow-Headers"[..], &b"Content-Type, Authorization"[..]).unwrap();
 
             let tiny_res = TinyResponse::from_data(res.body)
                 .with_status_code(res.status)
-                .with_header(header);
+                .with_header(content_type_header)
+                .with_header(cors_origin)
+                .with_header(cors_methods)
+                .with_header(cors_headers);
 
             let _ = real_request.respond(tiny_res);
         }
