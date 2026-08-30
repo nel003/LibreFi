@@ -19,6 +19,7 @@ import {
   Loader2Icon,
 } from "lucide-react"
 import { Button } from "./button"
+import { ToastGroup } from "./toast-group"
 import { cn } from "#lib/utils"
 
 type ToastType =
@@ -98,7 +99,7 @@ interface PromiseToastData<Value> {
 
 type ToastCustom = ToastMessage | ((id: string) => ToastMessage)
 
-const toastVariants: Record<ToastType, string> = {
+export const toastVariants: Record<ToastType, string> = {
   default: "bg-popover text-popover-foreground border-border",
   success: "bg-green-50 text-green-900 border-green-200 dark:bg-green-900 dark:text-green-50 dark:border-green-800",
   error: "bg-red-50 text-red-900 border-red-200 dark:bg-red-900 dark:text-red-50 dark:border-red-800",
@@ -107,7 +108,7 @@ const toastVariants: Record<ToastType, string> = {
   loading: "bg-popover text-popover-foreground border-border",
 }
 
-const defaultIcons: Record<
+export const defaultIcons: Record<
   Exclude<ToastType, "default">,
   React.ReactNode
 > = {
@@ -118,14 +119,17 @@ const defaultIcons: Record<
   loading: <Loader2Icon className="animate-spin" aria-hidden="true" />,
 }
 
-const MAX_VISIBLE_TOASTS = 3
-const COLLAPSED_PEEK = 14
-const SCALE_STEP = 0.06
-const TOAST_WIDTH = 380
+export const MAX_VISIBLE_TOASTS = 3
+export const COLLAPSED_PEEK = 14
+export const SCALE_STEP = 0.06
+export const TOAST_WIDTH = 380
 
 let toastCounter = 0
-let defaultOptions: Partial<ToastOptions> = {}
-let inheritPosition: ToastOptions["position"] | undefined
+export let defaultOptions: Partial<ToastOptions> = {}
+export let inheritPosition: ToastOptions["position"] | undefined
+export function setInheritPosition(val: typeof inheritPosition) {
+  inheritPosition = val;
+}
 let toastState: ToastData[] = []
 let registeredToasters = 0
 let autoRoot: ReturnType<typeof createRoot> | null = null
@@ -190,7 +194,7 @@ function isToastMessage(
   )
 }
 
-function removeToast(id: string) {
+export function removeToast(id: string) {
   const item = toastState.find((toastItem) => toastItem.id === id)
   item?.onDismiss?.(id)
   toastState = toastState.filter((toastItem) => toastItem.id !== id)
@@ -380,9 +384,10 @@ const toast = {
   loading,
   custom,
   configure,
+  Toaster: null as any,
 }
 
-function getOffsetStyle(
+export function getOffsetStyle(
   position: ToastPosition,
   offset: NonNullable<ToasterProps["offset"]>
 ): React.CSSProperties {
@@ -418,320 +423,7 @@ function groupToasts(
   return groups
 }
 
-function ToastCard({
-  item,
-  position,
-  icons,
-  y,
-  scale,
-  zIndex,
-  hidden,
-  onHeightChange,
-  onUnmount,
-}: {
-  item: ToastData
-  position: ToastPosition
-  icons?: ToasterProps["icons"]
-  y: number
-  scale: number
-  zIndex: number
-  hidden: boolean
-  onHeightChange: (id: string, height: number) => void
-  onUnmount: (id: string) => void
-}) {
-  const duration = item.duration ?? defaultOptions.duration ?? 5000
-  const autoDismiss = duration > 0 && duration !== Infinity
-  const closeButton = item.closeButton ?? defaultOptions.closeButton ?? false
-  const dismissible = item.dismissible ?? defaultOptions.dismissible ?? true
 
-  const pausedRef = useRef(false)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const cardRef = useRef<HTMLDivElement | null>(null)
-
-  // Mount/Animation state
-  const [mounted, setMounted] = useState(false)
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragX, setDragX] = useState(0)
-  const startXRef = useRef(0)
-
-  useEffect(() => {
-    // Delay setting mount state slightly so initial offscreen positions render first, 
-    // enabling the CSS transition to trigger as it slides in.
-    const frame = requestAnimationFrame(() => {
-      setMounted(true)
-    })
-    return () => cancelAnimationFrame(frame)
-  }, [])
-
-  const clearTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current)
-      timerRef.current = null
-    }
-  }, [])
-
-  const armTimer = useCallback(() => {
-    clearTimer()
-    if (!autoDismiss || pausedRef.current) return
-    timerRef.current = setTimeout(() => removeToast(item.id), duration)
-  }, [autoDismiss, clearTimer, duration, item.id])
-
-  useEffect(() => {
-    armTimer()
-    return clearTimer
-  }, [armTimer, clearTimer])
-
-  const pause = useCallback(() => {
-    pausedRef.current = true
-    clearTimer()
-  }, [clearTimer])
-
-  const resume = useCallback(() => {
-    pausedRef.current = false
-    armTimer()
-  }, [armTimer])
-
-  useLayoutEffect(() => {
-    const node = cardRef.current
-    if (!node) return
-    const report = () => onHeightChange(item.id, node.offsetHeight)
-    report()
-    if (typeof ResizeObserver === "undefined") return
-    const observer = new ResizeObserver(report)
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [item.id, onHeightChange])
-
-  useEffect(() => {
-    return () => onUnmount(item.id)
-  }, [item.id, onUnmount])
-
-  const isTop = position.startsWith("top")
-  const isLeft = position.endsWith("left")
-  const isCenter = position.endsWith("center")
-  
-  // Calculate raw positions for CSS Transforms
-  const restY = isTop ? y : -y
-  const offScreenY = isTop ? "-100%" : "100%"
-  const enterY = isCenter ? `calc(${offScreenY} + ${restY}px)` : `${restY}px`
-  const restYValue = isCenter ? `calc(0% + ${restY}px)` : `${restY}px`
-  const enterX = isCenter ? "0px" : isLeft ? "-100%" : "100%"
-
-  const currentX = mounted && isDragging ? `${dragX}px` : (mounted ? "0px" : enterX)
-  const currentY = mounted ? restYValue : enterY
-  const currentScale = (mounted && !hidden) ? scale : scale * 0.95
-  const currentOpacity = (mounted && !hidden) ? 1 : 0
-
-  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!dismissible) return
-    e.currentTarget.setPointerCapture(e.pointerId)
-    startXRef.current = e.clientX
-    setIsDragging(true)
-  }
-
-  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDragging) return
-    const delta = e.clientX - startXRef.current
-    // Add drag elasticity 
-    setDragX(delta * 0.5)
-  }
-
-  const onPointerUp = () => {
-    if (!isDragging) return
-    setIsDragging(false)
-    if (Math.abs(dragX) > 100) {
-      removeToast(item.id)
-    } else {
-      setDragX(0)
-    }
-  }
-
-  const icon =
-    item.icon ??
-    (item.type !== "default"
-      ? (icons?.[item.type] ?? defaultIcons[item.type])
-      : null)
-
-  return (
-    <div
-      ref={cardRef}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
-      onMouseEnter={pause}
-      onMouseLeave={resume}
-      onFocus={pause}
-      onBlur={resume}
-      style={{
-        position: "absolute",
-        left: 0,
-        width: "100%",
-        [isTop ? "top" : "bottom"]: 0,
-        pointerEvents: hidden ? "none" : "auto",
-        zIndex,
-        opacity: currentOpacity,
-        transform: `translate3d(${currentX}, ${currentY}, 0) scale(${currentScale})`,
-        transition: isDragging 
-          ? "none" 
-          : "transform 350ms cubic-bezier(0.22, 1, 0.36, 1), opacity 350ms cubic-bezier(0.22, 1, 0.36, 1)",
-      }}
-      className={cn(
-        "cursor-default select-none outline-none touch-none",
-        item.custom
-          ? "overflow-visible"
-          : cn(
-              "flex items-start gap-3 overflow-hidden rounded-2xl border p-4 shadow-lg",
-              toastVariants[item.type]
-            ),
-        item.className
-      )}
-    >
-      {item.custom ? (
-        item.custom
-      ) : (
-        <>
-          {icon ? (
-            <span className="shrink-0 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4">
-              {icon}
-            </span>
-          ) : null}
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            {item.title ? (
-              <div className="text-sm font-medium">{item.title}</div>
-            ) : null}
-            {item.description ? (
-              <div className="text-sm opacity-80">
-                {item.description}
-              </div>
-            ) : null}
-          </div>
-          {item.action || item.cancel ? (
-            <div className="flex shrink-0 items-center gap-2">
-              {item.cancel ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="shrink-0"
-                  onClick={(event) => {
-                    inheritPosition = item.position
-                    item.cancel?.onClick(event)
-                    inheritPosition = undefined
-                    removeToast(item.id)
-                  }}
-                >
-                  {item.cancel.label}
-                </Button>
-              ) : null}
-              {item.action ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0"
-                  onClick={(event) => {
-                    inheritPosition = item.position
-                    item.action?.onClick(event)
-                    inheritPosition = undefined
-                    if (item.action?.dismiss) removeToast(item.id)
-                  }}
-                >
-                  {item.action.label}
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
-          {closeButton ? (
-            <button
-              type="button"
-              aria-label="Close toast"
-              onClick={() => removeToast(item.id)}
-              className="shrink-0 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:opacity-100 focus:outline-none"
-            >
-              <XIcon aria-hidden="true" className="size-4" />
-            </button>
-          ) : null}
-        </>
-      )}
-    </div>
-  )
-}
-
-function ToastGroup({
-  position,
-  items,
-  icons,
-  offset,
-  gap,
-}: {
-  position: ToastPosition
-  items: ToastData[]
-  icons?: ToasterProps["icons"]
-  offset: NonNullable<ToasterProps["offset"]>
-  gap: number
-}) {
-  const [expanded, setExpanded] = useState(false)
-  const [heights, setHeights] = useState<Record<string, number>>({})
-
-  const setHeight = useCallback((id: string, height: number) => {
-    setHeights((prev) => (prev[id] === height ? prev : { ...prev, [id]: height }))
-  }, [])
-
-  const removeHeight = useCallback((id: string) => {
-    setHeights((prev) => {
-      if (!(id in prev)) return prev
-      const next = { ...prev }
-      delete next[id]
-      return next
-    })
-  }, [])
-
-  const ordered = [...items].reverse()
-
-  let cumulative = 0
-  const offsets = ordered.map((item, index) => {
-    const y = expanded
-      ? cumulative
-      : Math.min(index, MAX_VISIBLE_TOASTS - 1) * COLLAPSED_PEEK
-    cumulative += (heights[item.id] ?? 0) + gap
-    return y
-  })
-  const frontHeight = heights[ordered[0]?.id ?? ""] ?? 0
-  const expandedHeight = cumulative > 0 ? cumulative - gap : 0
-
-  return (
-    <div
-      onMouseEnter={() => setExpanded(true)}
-      onMouseLeave={() => setExpanded(false)}
-      onFocus={() => setExpanded(true)}
-      onBlur={() => setExpanded(false)}
-      aria-live="polite"
-      className="pointer-events-none fixed"
-      style={{
-        ...getOffsetStyle(position, offset),
-        width: `min(${TOAST_WIDTH}px, calc(100vw - 2rem))`,
-        height: expanded ? expandedHeight : frontHeight,
-        transition: "height 350ms cubic-bezier(0.22, 1, 0.36, 1)",
-      }}
-    >
-      {ordered.map((item, index) => (
-        <ToastCard
-          key={item.id}
-          item={item}
-          position={position}
-          icons={icons}
-          y={offsets[index]}
-          scale={
-            expanded ? 1 : 1 - Math.min(index, MAX_VISIBLE_TOASTS) * SCALE_STEP
-          }
-          zIndex={ordered.length - index}
-          hidden={!expanded && index >= MAX_VISIBLE_TOASTS}
-          onHeightChange={setHeight}
-          onUnmount={removeHeight}
-        />
-      ))}
-    </div>
-  )
-}
 
 function Toaster({
   position = "bottom-right",
@@ -791,9 +483,12 @@ function Toaster({
   )
 }
 
+toast.Toaster = Toaster;
+
 export {
-  Toaster,
+
   toast,
+
   configure,
   type ToasterProps,
   type ToastAction,

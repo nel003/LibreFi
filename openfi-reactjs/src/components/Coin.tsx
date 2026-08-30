@@ -29,6 +29,7 @@ function Progress({ MAX, timeSec, id, closeModal }: { MAX: number; timeSec: numb
             setProgress(secRef.current / MAX * 100)
             if (secRef.current <= 0 && timeRef.current) {
                 clearInterval(timeRef.current)
+                timeRef.current = null;
                 closeModal();
             }
         }, 100);
@@ -39,6 +40,7 @@ function Progress({ MAX, timeSec, id, closeModal }: { MAX: number; timeSec: numb
         return () => {
             if (timeRef.current) {
                 clearInterval(timeRef.current)
+                timeRef.current = null;
             }
         }
     }, [secRef, timeSec, MAX, closeModal, id]);

@@ -1,0 +1,5 @@
+# pnpm workspace hardening settings
+minimumReleaseAge: 10080
+minimumReleaseAgeExclude: ["@rolldown/*"]
+trustPolicy: no-downgrade
+blockExoticSubdeps: true

@@ -106,14 +106,13 @@ const Timer = ({ user }: { user: UserType | undefined }) => {
     }, [user]);
 
     useEffect(() => {
-        let timer = null;
-        if (user && !user.paused) {
-            timer = setInterval(() => {
-                setSec((prev) => (prev > 0 ? prev - 1 : 0));
-            }, 1000);
-        }
+        if (!user || user.paused) return;
 
-        return () => clearInterval(timer || 0);
+        const timer = setInterval(() => {
+            setSec((prev) => (prev > 0 ? prev - 1 : 0));
+        }, 1000);
+
+        return () => clearInterval(timer);
     }, [user]);
 
     return (

@@ -23,15 +23,15 @@ import type { UserType } from "../types/user";
 import type { RateType } from "../types/rates";
 import { formatSeconds } from "#lib/utils";
 
+function toggleTheme() {
+    const theme = window.localStorage.getItem("theme") || "light";
+    const n = (theme === "light" ? "dark" : "light")
+    document.documentElement.classList = n as string;
+    window.localStorage.setItem("theme", n);
+}
+
 function More({ user, children }: { user: UserType | undefined, children: ReactElement }) {
     const [rates, setRates] = useState<RateType[] | null>();
-
-    function toggleTheme() {
-        const theme = window.localStorage.getItem("theme") || "light";
-        const n = (theme === "light" ? "dark" : "light")
-        document.documentElement.classList = n;
-        window.localStorage.setItem("theme", n);
-    }
 
     const getRates = useCallback(async () => {
         const res = await fetch("http://localhost:8000/rates");
@@ -66,15 +66,15 @@ function More({ user, children }: { user: UserType | undefined, children: ReactE
                         </div>
 
                         <div className="p-2 font-semibold text-xs">Actions</div>
-                        <div onClick={toggleTheme} className="p-3 flex gap-4 border-b  border-t border-foreground/5 cursor-pointer hover:bg-primary/5 duration-75">
+                        <button onClick={toggleTheme} className="w-full text-left p-3 flex gap-4 border-b  border-t border-foreground/5 cursor-pointer hover:bg-primary/5 transition-colors duration-75">
                             <SunMoonIcon size="17" />
                             <span className="grow">Toggle Theme</span>
                             <Shuffle size="17" className="mt-px" />
-                        </div>
+                        </button>
 
                         <Drawer>
                             <DrawerTrigger nativeButton={false} render={
-                                <div className="p-3 flex gap-4 border-b border-foreground/5 cursor-pointer hover:bg-primary/5 duration-75">
+                                <div className="p-3 flex gap-4 border-b border-foreground/5 cursor-pointer hover:bg-primary/5 transition-colors duration-75">
                                     <PhilippinePeso size="17" className="mt-px" />
                                     <span className="grow">View Rates</span>
                                     <ChevronDown size="17" className="mt-px" />
@@ -105,7 +105,7 @@ function More({ user, children }: { user: UserType | undefined, children: ReactE
                             </DrawerContent>
                         </Drawer>
 
-                        <div className="p-3 flex gap-4 border-b border-foreground/5 cursor-pointer hover:bg-primary/5 duration-75">
+                        <div className="p-3 flex gap-4 border-b border-foreground/5 cursor-pointer hover:bg-primary/5 transition-colors duration-75">
                             <RefreshCcw size="17" />
                             <span className="grow">Fix Connection</span>
                             <ArrowRight size="17" className="mt-px" />
