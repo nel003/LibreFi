@@ -12,7 +12,7 @@ function App() {
   const [user, setUser] = useState<UserType>();
 
   const init = useCallback(async () => {
-    const res = await fetch("http://localhost:8000/init", {
+    const res = await fetch("/init", {
       method: "GET"
     });
 
@@ -28,10 +28,10 @@ function App() {
       init();
     })()
   }, [init])
-  
+
   async function handlePlayPause() {
     const playPauseRequest = async () => {
-      const res = await fetch("http://localhost:8000/play_pause", {
+      const res = await fetch("/play_pause", {
         method: "POST"
       });
 
@@ -78,9 +78,9 @@ function App() {
           description: "Status has been updated successfully."
         },
         error: (err) => ({
-            title: "Update failed",
-            description: err instanceof Error ? err.message : "Something went wrong."
-          })
+          title: "Update failed",
+          description: err instanceof Error ? err.message : "Something went wrong."
+        })
       },
       { position: "top-center" }
     );

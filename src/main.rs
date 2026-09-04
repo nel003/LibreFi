@@ -8,6 +8,7 @@ use crate::routes::{admin::admin, coin::coin, debug::debug, init::init, play_pau
 fn main() {
     let mut server = Server::new(80);
     utils::db::init_db("data.redb");
+    utils::setup_captive_portal::setup_captive_portal("br-lan", "phy0-sta0", "10.0.0.1", "5353");
     
     index(&mut server);
     status(&mut server);

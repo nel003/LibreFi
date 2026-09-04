@@ -98,6 +98,25 @@ pub fn play_pause(server: &mut Server) {
             action, mac, user.paused, user.expires_on, user.pause_attempts
         );
 
+        if user.paused {
+            let cmd = if crate::utils::cmds::has_command("nft") {
+                format!("nft delete element inet fw4 allowed_macs {{ {} }}", mac)
+            } else {
+                format!("ipset del allowed_macs {}", mac)
+            };
+            let _ = crate::utils::setup_captive_portal::run_sh_cmd(&cmd, true);
+        } else {
+            let diff = user.expires_on.saturating_sub(now);
+            if diff > 0 {
+                let cmd = if crate::utils::cmds::has_command("nft") {
+                    format!("nft add element inet fw4 allowed_macs {{ {} timeout {}s }}", mac, diff)
+                } else {
+                    format!("ipset add allowed_macs {} timeout {} -exist", mac, diff)
+                };
+                let _ = crate::utils::setup_captive_portal::run_sh_cmd(&cmd, true);
+            }
+        }
+
         res.status = 200;
         res.body = serde_json::json!({
             "action": action,

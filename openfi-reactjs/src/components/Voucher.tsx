@@ -19,13 +19,14 @@ function Voucher({ updateUser, children }: { updateUser: (expires_on: number, no
     async function handleRedeem() {
         const redeemRequest = async () => {
             setIsRedeeming(true);
-            const res = await fetch("http://localhost:8000/redeem", {
+            const res = await fetch("/redeem", {
                 method: "POST",
                 body: JSON.stringify({ code })
             })
 
             if (!res.ok) {
                 let serverErrorMessage = "Failed to update status";
+                setIsRedeeming(false);
 
                 try {
                     const errorData = await res.json();
@@ -35,7 +36,6 @@ function Voucher({ updateUser, children }: { updateUser: (expires_on: number, no
                     if (textError) serverErrorMessage = textError;
                 }
 
-                setIsRedeeming(false);
                 throw new Error(serverErrorMessage);
             }
 

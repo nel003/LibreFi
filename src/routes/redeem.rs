@@ -1,9 +1,10 @@
 use crate::network::server::Server;
 use crate::utils::db::{get_db, User, Voucher, USERS_TABLE, VOUCHERS_TABLE};
 use crate::utils::get_mac_from_ip::get_mac_from_ip;
+use crate::utils::setup_captive_portal::run_sh_cmd;
 use redb::ReadableDatabase;
 use serde::Deserialize;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH}; 
 
 #[derive(Deserialize)]
 struct RedeemBody {
@@ -12,7 +13,6 @@ struct RedeemBody {
 
 pub fn redeem(server: &mut Server) {
     server.post("/redeem", |req, res| {
-        // Identify the requesting device
         let Some(mac) = get_mac_from_ip(&req.ip) else {
             res.status = 403;
             res.body = b"{\"error\":\"Device not recognized\"}".to_vec();
@@ -20,7 +20,6 @@ pub fn redeem(server: &mut Server) {
             return;
         };
 
-        // Parse body: { "code": "PROMO2024" }
         let body_str = match String::from_utf8(req.body.clone()) {
             Ok(s) => s,
             Err(_) => {
@@ -43,7 +42,6 @@ pub fn redeem(server: &mut Server) {
 
         let db = get_db();
 
-        // --- Read voucher ---
         let read_txn = db.begin_read().unwrap();
         let vtable = read_txn.open_table(VOUCHERS_TABLE).unwrap();
 
@@ -72,7 +70,6 @@ pub fn redeem(server: &mut Server) {
             return;
         }
 
-        // --- Read user ---
         let utable = read_txn.open_table(USERS_TABLE).unwrap();
 
         let mut user: User = match utable.get(mac.as_str()).unwrap() {
@@ -97,20 +94,17 @@ pub fn redeem(server: &mut Server) {
         drop(vtable);
         drop(read_txn);
 
-        // --- Extend session ---
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs() as u32;
 
-        // If expired or never started, begin from now; otherwise extend from where it left off
         if user.expires_on == 0 || user.expires_on < now {
             user.expires_on = now + voucher.time;
         } else {
             user.expires_on += voucher.time;
         }
 
-        // --- Write both changes atomically ---
         let used_voucher = Voucher { used: true, ..voucher };
 
         let write_txn = db.begin_write().unwrap();
@@ -129,6 +123,18 @@ pub fn redeem(server: &mut Server) {
             "-> Voucher [{}] redeemed by MAC={} — expires_on={}",
             body.code, mac, user.expires_on
         );
+
+        if !user.paused {
+            let diff = user.expires_on.saturating_sub(now);
+            if diff > 0 {
+                let cmd = if crate::utils::cmds::has_command("nft") {
+                    format!("nft add element inet fw4 allowed_macs {{ {} timeout {}s }}", mac, diff)
+                } else {
+                    format!("ipset add allowed_macs {} timeout {} -exist", mac, diff)
+                };
+                let _ = run_sh_cmd(&cmd, true);
+            }
+        }
 
         res.status = 200;
         res.body = serde_json::json!({

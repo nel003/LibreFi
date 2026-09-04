@@ -1,24 +1,19 @@
 import React, {
-  useCallback,
   useState,
   useSyncExternalStore,
   useEffect,
-  useLayoutEffect,
   isValidElement,
-  useRef,
 } from "react"
 import { createPortal } from "react-dom"
 import { createRoot } from "react-dom/client"
 
 import {
-  XIcon,
   CircleCheckIcon,
   InfoIcon,
   TriangleAlertIcon,
   OctagonXIcon,
   Loader2Icon,
 } from "lucide-react"
-import { Button } from "./button"
 import { ToastGroup } from "./toast-group"
 import { cn } from "#lib/utils"
 

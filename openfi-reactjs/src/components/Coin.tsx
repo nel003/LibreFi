@@ -65,7 +65,7 @@ function Coin({ children }: { children: ReactElement }) {
     }
 
     async function handleCoin() {
-        const res = await fetch("http://localhost:8000/coin");
+        const res = await fetch("/coin");
         const json = await res.json();
 
         if (!res.ok) {

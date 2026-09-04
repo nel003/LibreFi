@@ -34,7 +34,7 @@ function More({ user, children }: { user: UserType | undefined, children: ReactE
     const [rates, setRates] = useState<RateType[] | null>();
 
     const getRates = useCallback(async () => {
-        const res = await fetch("http://localhost:8000/rates");
+        const res = await fetch("/rates");
         if (res.status === 200) {
             const json = await res.json();
             setRates(json.rows);
@@ -46,7 +46,7 @@ function More({ user, children }: { user: UserType | undefined, children: ReactE
             getRates()
         })()
     }, [getRates])
-    
+
     return (
         <>
             <Popover>

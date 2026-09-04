@@ -1,3 +1,7 @@
 [target.mips-unknown-linux-musl]
 image = "ghcr.io/cross-rs/mips-unknown-linux-musl:main"
-build-std = ["std", "panic_abort"]
+build-std = ["core", "alloc", "std", "panic_abort"]
+
+[build]
+# Use pre-built binaries where available to avoid build script GLIBC issues
+pre-built = true
