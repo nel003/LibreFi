@@ -7,3 +7,4 @@ pub mod admin;
 pub mod rates;
 pub mod redeem;
 pub mod coin;
+pub mod ws;

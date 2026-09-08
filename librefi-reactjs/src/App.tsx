@@ -3,16 +3,17 @@ import More from "#components/More";
 import Timer from "#components/Timer";
 import { Button } from "#components/ui/button"
 import Voucher from "#components/Voucher";
-import { CoinsIcon, EllipsisVertical, PauseIcon, PlayIcon, Ticket } from "lucide-react"
+import { CoinsIcon, EllipsisVertical, Loader2Icon, PauseIcon, PlayIcon, Ticket } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import type { UserType } from "./types/user";
 import { toast } from "#components/ui/toast";
 
 function App() {
   const [user, setUser] = useState<UserType>();
+  const [status, setStatus] = useState("--");
 
   const init = useCallback(async () => {
-    const res = await fetch("/init", {
+    const res = await fetch(`/init?_=${Date.now()}`, {
       method: "GET"
     });
 
@@ -23,11 +24,44 @@ function App() {
 
   }, []);
 
+  const testConnection = useCallback(async () => {
+    try {
+      setStatus("Testing");
+      const res = await fetch(`https://dns.google/resolve?name=google.com&_=${Date.now()}`, {
+        method: "GET",
+        signal: AbortSignal.timeout(2000)
+      });
+
+      if (res.status === 200) {
+        setStatus("Connected");
+      }
+    } catch (error) {
+      setStatus("Disconnected");
+    }
+
+  }, []);
+
   useEffect(() => {
     (() => {
       init();
     })()
   }, [init])
+
+  useEffect(() => {
+    if (user && window.location.pathname !== "/") {
+      window.location.reload();
+      return;
+    }
+
+    (async () => {
+      if (user?.paused) {
+        setStatus("Paused")
+        return;
+      }
+
+      await testConnection();
+    })()
+  }, [user])
 
   async function handlePlayPause() {
     const playPauseRequest = async () => {
@@ -92,12 +126,12 @@ function App() {
 
   return (
     <>
-      <div className="grid place-items-center h-screen w-screen">
+      <div className="grid place-items-center h-screen [@supports(height:100dvh)]:h-dvh w-screen">
         <div className="max-w-lg w-full p-6">
-          <h1 className="text-center pb-8 text-sm">CONNECTED</h1>
+          <h1 className="text-center pb-8 text-sm flex items-center justify-center ">{status} {status === "Testing" ? <span className="pl-1 "> <Loader2Icon size={16} className="animate-spin " /></span> : <></>} </h1>
 
           <div className="bg-amber-50/30 dark:bg-amber-300/5">
-            <div className="w-full flex justify-center backdrop-blur-3xl  pt-4">
+            <div className="w-full flex justify-center backdrop-blur-3xl  py-4">
               <Timer
                 user={user}
               />
@@ -112,7 +146,7 @@ function App() {
               <span className="text-[0.7rem] text-center mt-1 text-foreground/60">{user?.paused ? "PLAY" : "PAUSE"}</span>
             </div>
             <div className="flex flex-col">
-              <Coin>
+              <Coin onClose={init}>
                 <Button variant="outline" size="icon-lg" className="hover:scale-125 hover:bg-primary/5 hover:text-primary/90 hover:-rotate-6">
                   <CoinsIcon />
                 </Button>

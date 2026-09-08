@@ -128,7 +128,7 @@ pub fn redeem(server: &mut Server) {
             let diff = user.expires_on.saturating_sub(now);
             if diff > 0 {
                 let cmd = if crate::utils::cmds::has_command("nft") {
-                    format!("nft add element inet fw4 allowed_macs {{ {} timeout {}s }}", mac, diff)
+                    format!("nft add element inet librefi allowed_macs {{ {} timeout {}s }}", mac, diff)
                 } else {
                     format!("ipset add allowed_macs {} timeout {} -exist", mac, diff)
                 };

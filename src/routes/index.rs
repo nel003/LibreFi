@@ -1,15 +1,14 @@
 use crate::network::server::Server;
-use crate::utils::db::{get_db, User, USERS_TABLE};
+use crate::utils::db::{USERS_TABLE, User, get_db};
 use crate::utils::get_mac_from_ip::get_mac_from_ip;
 use redb::ReadableDatabase;
-use std::fs;
 
 pub fn index(server: &mut Server) {
     server.get("/", |req, res| {
         if req.ip != "unknown" && !req.ip.is_empty() {
             if let Some(mac) = get_mac_from_ip(&req.ip) {
                 let db = get_db();
-                
+
                 let read_txn = db.begin_read().unwrap();
                 let table = read_txn.open_table(USERS_TABLE).unwrap();
                 let existing = table.get(mac.as_str()).unwrap();
@@ -64,15 +63,15 @@ pub fn index(server: &mut Server) {
             }
         }
 
-        match fs::read_to_string("dist/index.html") {
-            Ok(contents) => {
+        match crate::network::server::Asset::get("index.html") {
+            Some(file) => {
                 res.status = 200;
-                res.body = contents.into_bytes();
+                res.body = file.data.into_owned();
                 res.content_type = String::from("text/html");
             }
-            Err(e) => {
+            None => {
                 res.status = 500;
-                res.body = format!("Could not load file: {}", e).into_bytes();
+                res.body = b"Could not load embedded index.html".to_vec();
             }
         }
     });

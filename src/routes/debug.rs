@@ -83,4 +83,38 @@ pub fn debug(server: &mut Server) {
         .into_bytes();
         res.content_type = String::from("application/json");
     });
+
+    server.get("/debug/clear_time", |_req, res| {
+        let db = get_db();
+        let write_txn = db.begin_write().unwrap();
+        
+        let mut count = 0;
+        {
+            let mut table = write_txn.open_table(USERS_TABLE).unwrap();
+            let mut updates = Vec::new();
+
+            for item in table.iter().unwrap() {
+                let (key, value) = item.unwrap();
+                let mac = key.value().to_string();
+                if let Ok(mut user) = serde_json::from_str::<User>(value.value()) {
+                    user.expires_on = 0; // Clear the time
+                    updates.push((mac, serde_json::to_string(&user).unwrap()));
+                }
+            }
+
+            for (mac, user_json) in updates {
+                table.insert(mac.as_str(), user_json.as_str()).unwrap();
+                count += 1;
+            }
+        }
+        write_txn.commit().unwrap();
+
+        res.status = 200;
+        res.body = format!(
+            "{{\"ok\":true,\"message\":\"Cleared time for {} users\"}}",
+            count
+        )
+        .into_bytes();
+        res.content_type = String::from("application/json");
+    });
 }

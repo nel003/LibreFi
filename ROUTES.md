@@ -116,12 +116,40 @@ Insert or overwrite a rate entry. Key = `id` (u32).
 
 ---
 
+### `PUT /admin/rates`
+Update or overwrite an existing rate entry. Key = `id` (u32). Functions identically to `POST`.
+
+**Plaintext payload (before encryption):**
+```json
+{ "id": 1, "price": 15.0, "time": 3600 }
+```
+
+- **200** — Rate saved → `{"ok":true,"id":1,"rate":{...}}`
+- **400** — Invalid JSON payload → `{"error":"Invalid payload: ..."}`
+- **401** — Decryption failed (wrong key) → `{"error":"Decryption failed: ..."}`
+
+---
+
+### `DELETE /admin/rates`
+Remove a rate entry. Key = `id` (u32).
+
+**Plaintext payload (before encryption):**
+```json
+{ "id": 1 }
+```
+
+- **200** — Rate deleted → `{"ok":true,"id":1,"deleted":true}`
+- **400** — Invalid JSON payload → `{"error":"Invalid delete payload: ..."}`
+- **401** — Decryption failed (wrong key) → `{"error":"Decryption failed: ..."}`
+
+---
+
 ### `POST /admin/vouchers`
 Insert or overwrite a voucher coupon. Key = `code` (string). Inserting the same code again overwrites the price.
 
 **Plaintext payload (before encryption):**
 ```json
-{ "code": "PROMO2024", "price": 15.0 }
+{ "code": "PROMO2024", "time": 3600 }
 ```
 
 | Field | Type | Description |
@@ -134,6 +162,97 @@ Insert or overwrite a voucher coupon. Key = `code` (string). Inserting the same 
 - **200** — Voucher saved → `{"ok":true,"code":"PROMO2024","voucher":{...}}`
 - **400** — Invalid JSON payload → `{"error":"Invalid voucher payload: ..."}`
 - **401** — Decryption failed (wrong key) → `{"error":"Decryption failed: ..."}`
+
+---
+
+### `GET /admin/qos`
+Returns the current quality-of-service (QoS) speed limits configured on the system.
+
+- **200** — QoS config found → `{"download":5.0,"upload":1.0}` (or `0.0` if not set)
+- **403** — Request blocked (Admin access denied from LAN)
+
+---
+
+### `POST /admin/qos`
+Apply quality-of-service (QoS) speed limits to all clients using `sqm-scripts` (cake qdisc for fairness). The provided Mbps values are automatically converted to `kbps`.
+
+**Plaintext payload (before encryption):**
+```json
+{ "download": 5.0, "upload": 1.0 }
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `download` | `f64` | Download speed limit per client in Mbps |
+| `upload` | `f64` | Upload speed limit per client in Mbps |
+
+- **200** — QoS applied successfully → `{"ok":true}`
+- **400** — Invalid JSON payload → `{"error":"Invalid qos payload: ..."}`
+- **401** — Decryption failed (wrong key) → `{"error":"Decryption failed: ..."}`
+- **500** — Failed to apply QoS (shell error) → `{"error":"Failed to apply QoS: ..."}`
+
+---
+
+### `GET /admin/users`
+Returns all users currently stored in the database.
+> **Note**: Even though this is a `GET` request, you must still send an AES-256-GCM encrypted payload in the body to authenticate the request. Any valid payload (e.g., `{"action":"list"}`) will work as long as it decrypts successfully.
+
+- **200** — Returns an array of user objects including their MAC addresses
+- **401** — Decryption failed (wrong key or missing payload)
+
+---
+
+### `POST /admin/users`
+Insert or overwrite a user record. Key = `mac` (string).
+
+**Plaintext payload (before encryption):**
+```json
+{
+  "mac": "aa:bb:cc:dd:ee:ff",
+  "name": "John Doe",
+  "ip": "192.168.1.10",
+  "paused": false,
+  "pause_attempts": 0,
+  "pause_day": 0,
+  "paused_on": 0,
+  "expires_on": 1756547416
+}
+```
+
+- **200** — User saved → `{"ok":true}`
+- **400** — Invalid JSON payload → `{"error":"Invalid user payload: ..."}`
+- **401** — Decryption failed (wrong key)
+
+---
+
+### `GET /admin/wifi`
+Returns the current 2.4GHz and 5GHz WiFi configuration stored on the system.
+> **Note**: Even though this is a `GET` request, you must still send an AES-256-GCM encrypted payload in the body to authenticate the request. Any valid payload (e.g., `{"action":"get"}`) will work as long as it decrypts successfully.
+
+- **200** — WiFi config found → `{"ssid_2g":"...","key_2g":"...","disabled_2g":false,"ssid_5g":"...","key_5g":"...","disabled_5g":false,"supports_2g":true,"supports_5g":false}`
+- **401** — Decryption failed (wrong key or missing payload)
+
+---
+
+### `POST /admin/wifi`
+Update the WiFi configuration for both 2.4GHz and 5GHz access points. This will instantly apply the changes to OpenWrt's UCI system and restart the wireless interfaces.
+> **Note**: If `key_2g` or `key_5g` are passed as empty strings `""`, the system will remove the password requirement for that band and set the encryption to `none`!
+
+**Plaintext payload (before encryption):**
+```json
+{
+  "ssid_2g": "MyNetwork-2.4G",
+  "key_2g": "SuperSecretPass",
+  "disabled_2g": false,
+  "ssid_5g": "MyNetwork-5G",
+  "key_5g": "",
+  "disabled_5g": false
+}
+```
+
+- **200** — WiFi updated successfully → `{"ok":true}`
+- **400** — Invalid JSON payload → `{"error":"Invalid wifi payload: ..."}`
+- **401** — Decryption failed (wrong key)
 
 ---
 
@@ -172,7 +291,15 @@ Dumps all rows from the `users` table. Useful during development.
 | `GET /rates` | `src/routes/rates.rs` |
 | `GET /status` | `src/routes/status.rs` |
 | `POST /play_pause` | `src/routes/play_pause.rs` |
-| `POST /admin/rates` | `src/routes/admin.rs` |
-| `POST /admin/vouchers` | `src/routes/admin.rs` |
+| `POST /admin/rates` | `src/routes/admin/rates.rs` |
+| `PUT /admin/rates` | `src/routes/admin/rates.rs` |
+| `DELETE /admin/rates` | `src/routes/admin/rates.rs` |
+| `POST /admin/vouchers` | `src/routes/admin/vouchers.rs` |
+| `GET /admin/qos` | `src/routes/admin/qos.rs` |
+| `POST /admin/qos` | `src/routes/admin/qos.rs` |
+| `GET /admin/users` | `src/routes/admin/users.rs` |
+| `POST /admin/users` | `src/routes/admin/users.rs` |
+| `GET /admin/wifi` | `src/routes/admin/wifi.rs` |
+| `POST /admin/wifi` | `src/routes/admin/wifi.rs` |
 | `GET /debug/db` | `src/routes/debug.rs` |
 | `GET /dist/*` | `src/network/server.rs` (static file fallback) |
