@@ -12,10 +12,10 @@
 
 #include <ArduinoJson.h>
 #include <Ticker.h>
-#include <WebSocketsClient.h> // arduinoWebSockets by Markus Sattler
+#include <WebSocketsClient.h>
 
 // ==================== CONFIGURATION ====================
-const char *WIFI_SSID = "OpenWrt";
+const char *WIFI_SSID = "LibreFi2.4G";
 const char *WIFI_PASS = "";
 
 // Router WebSocket Server (Default OpenFi gateway)
@@ -24,26 +24,25 @@ const uint16_t WS_PORT = 80;
 const char *WS_PATH = "/ws";
 
 // Secret key matching ADMIN_SECRET_KEY in src/routes/admin.rs
-const char *ADMIN_SECRET_KEY = "arns_super_pogi_4ever";
+const char *ADMIN_SECRET_KEY = "9707e9a85d07e6e792417d6a3e68b71f";
 // =======================================================
 
 // Hardware Pins
 #define COIN_PIN 4
 #define SLOT_PIN 14
-#define LED_PIN 2
-#define PIEZO_PIN 13
+#define LED_PIN 15
 
 // Timing Configurations
 const unsigned long DEBOUNCE_TIME_MS = 50;
 const unsigned long CREDIT_DELAY_MS = 200;
-const unsigned long BEEP_INTERVAL_MS = 1000;
+const unsigned long BLINK_INTERVAL_MS = 100;
 const unsigned long LED_BLINK_INTERVAL = 1000;
 
 Ticker creditTicker;
 WebSocketsClient webSocket;
 
 volatile unsigned long lastPulseTime = 0;
-unsigned long lastBeepTime = 0;
+unsigned long lastBlinkTime = 0;
 unsigned long lastLEDToggleTime = 0;
 unsigned long lastHeartbeatTime =
     0; // Heartbeat keeps server's ws.read() from blocking
@@ -57,6 +56,9 @@ bool hasNewCredit = false;
 bool isReady = false;
 bool hasPulse = false;
 bool isNotified = false;
+
+// NEW: Variable to track the LED state in software
+bool ledState = false;
 
 // ==================== BASE64 HELPER ====================
 #if defined(ESP8266)
@@ -144,7 +146,7 @@ String encryptPayload(const char *secretKey, const char *jsonPayload) {
   uint8_t tag[16];
 
   br_gcm_context gc;
-  br_aes_ct_ctr_keys bc; // CTR-only variant — vtable is br_block_ctr_class*
+  br_aes_ct_ctr_keys bc;
   br_aes_ct_ctr_init(&bc, key, 32);
   br_gcm_init(&gc, &bc.vtable, br_ghash_ctmul32);
   br_gcm_reset(&gc, iv, 12);
@@ -209,23 +211,25 @@ void sendCredit() { hasNewCredit = true; }
 // ==================== LED & BUZZER ====================
 void handleLED() {
   unsigned long currentMillis = millis();
+
   if (!isReady) {
+    // Blinking while waiting for connection/registration
     if (currentMillis - lastLEDToggleTime >= LED_BLINK_INTERVAL) {
-      digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+      ledState = !ledState;
+      digitalWrite(LED_PIN, ledState);
       lastLEDToggleTime = currentMillis;
     }
   } else {
-    // LED solid when connected and ready
-    digitalWrite(LED_PIN, LOW);
-  }
-}
-
-void handleBuzzer() {
-  if (digitalRead(SLOT_PIN) && (millis() - lastBeepTime > BEEP_INTERVAL_MS)) {
-    digitalWrite(PIEZO_PIN, !digitalRead(PIEZO_PIN));
-    lastBeepTime = millis();
-  } else {
-    digitalWrite(PIEZO_PIN, LOW);
+    if (sessionActive) {
+      if (millis() - lastBlinkTime >= BLINK_INTERVAL_MS) {
+        ledState = !ledState;
+        digitalWrite(LED_PIN, ledState);
+        lastBlinkTime = currentMillis;
+      }
+    } else {
+      ledState = true;
+      digitalWrite(LED_PIN, HIGH);
+    }
   }
 }
 
@@ -256,6 +260,7 @@ void processData(const char *jsonStr) {
 
   if (doc["type"] == "cmd" && doc["value"] == "open") {
     sendEncrypted("{\"type\":\"res\",\"value\":\"open\"}");
+    sessionActive = true; // Added this so handleLED() knows the slot is open
     digitalWrite(SLOT_PIN, HIGH);
     Serial.println("[CMD] Coin slot opened");
   }
@@ -265,8 +270,6 @@ void processData(const char *jsonStr) {
     digitalWrite(SLOT_PIN, LOW);
     sessionActive = false;
     sessionTimeLeft = 0;
-
-    // If coins were dropped right before closing, force processing
     if (pulseCount > 0) {
       hasNewCredit = true;
     }
@@ -315,27 +318,34 @@ void setup() {
   pinMode(COIN_PIN, INPUT_PULLUP);
   pinMode(LED_PIN, OUTPUT);
   pinMode(SLOT_PIN, OUTPUT);
-  pinMode(PIEZO_PIN, OUTPUT);
 
   digitalWrite(SLOT_PIN, LOW);
-  digitalWrite(PIEZO_PIN, LOW);
-
-  attachInterrupt(digitalPinToInterrupt(COIN_PIN), onCoinInterrupt, FALLING);
+  digitalWrite(LED_PIN, LOW);
 
   // Connect to WiFi
   WiFi.mode(WIFI_STA);
+#if defined(ESP8266)
+  WiFi.setOutputPower(20.5);
+#elif defined(ESP32)
+  WiFi.setTxPower(WIFI_POWER_8_5dBm);
+#else
+#endif
+
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   Serial.print("[WiFi] Connecting to ");
   Serial.print(WIFI_SSID);
 
+  // FIXED: Using ledState boolean here as well
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
-    digitalWrite(LED_PIN,
-                 !digitalRead(LED_PIN)); // Fast blink while connecting to WiFi
+    ledState = !ledState;
+    digitalWrite(LED_PIN, ledState);
   }
 
   Serial.println("\n[WiFi] Connected! IP: " + WiFi.localIP().toString());
+
+  attachInterrupt(digitalPinToInterrupt(COIN_PIN), onCoinInterrupt, FALLING);
 
   // Connect WebSocket to router
   Serial.printf("[WS] Connecting to ws://%s:%d%s\n", WS_HOST, WS_PORT, WS_PATH);
@@ -394,5 +404,4 @@ void loop() {
   }
 
   handleLED();
-  handleBuzzer();
 }

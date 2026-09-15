@@ -6,7 +6,7 @@ use routes::index::index;
 
 use crate::routes::{
     admin::admin, coin::coin, debug::debug, init::init, play_pause::play_pause, rates::rates,
-    redeem::redeem, status::status, ws::ws_handler,
+    redeem::redeem, ws::ws_handler,
 };
 fn main() {
     let mut server = Server::new(80);
@@ -16,7 +16,6 @@ fn main() {
     utils::setup_captive_portal::restore_qos_settings();
 
     index(&mut server);
-    status(&mut server);
     play_pause(&mut server);
     debug(&mut server);
     init(&mut server);

@@ -117,4 +117,34 @@ pub fn debug(server: &mut Server) {
         .into_bytes();
         res.content_type = String::from("application/json");
     });
+
+    server.get("/debug/clear_vouchers", |_req, res| {
+        let db = get_db();
+        let write_txn = db.begin_write().unwrap();
+        
+        let mut count = 0;
+        {
+            let mut table = write_txn.open_table(crate::utils::db::VOUCHERS_TABLE).unwrap();
+            let mut keys = Vec::new();
+
+            for item in table.iter().unwrap() {
+                let (key, _) = item.unwrap();
+                keys.push(key.value().to_string());
+            }
+
+            for key in keys {
+                table.remove(key.as_str()).unwrap();
+                count += 1;
+            }
+        }
+        write_txn.commit().unwrap();
+
+        res.status = 200;
+        res.body = format!(
+            "{{\"ok\":true,\"message\":\"Cleared {} vouchers\"}}",
+            count
+        )
+        .into_bytes();
+        res.content_type = String::from("application/json");
+    });
 }

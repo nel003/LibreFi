@@ -19,3 +19,7 @@ opt-level = "z"
 lto = true
 codegen-units = 1
 panic = "unwind"
+
+[dev-dependencies]
+ureq = { version = "2.9.1", features = ["json"] }
+rand = "0.8"

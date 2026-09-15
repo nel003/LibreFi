@@ -1,12 +1,12 @@
+use base64::Engine;
 use std::sync::mpsc;
 use std::time::Duration;
 use tiny_http::ReadWrite;
 use tungstenite::protocol::{Message, WebSocket};
-use base64::Engine;
 
-use crate::routes::admin::key_bytes;
+use crate::routes::admin::coinslot_key::get_coinslot_key_bytes;
 use crate::utils::crypto::decrypt_payload;
-use crate::utils::db::{add_time_to_user, convert_amount_to_time};
+use crate::utils::db::{add_time_to_user, convert_amount_to_time, record_sale};
 use crate::utils::setup_captive_portal::allow_mac;
 
 use super::state::{
@@ -22,7 +22,7 @@ pub fn run_coinslot(mut ws: WebSocket<Box<dyn ReadWrite + Send>>, subnet: String
         .unwrap()
         .insert(subnet.clone(), tx);
 
-    println!(
+    crate::debug_println!(
         "[CS:{}] Registered coinslot, waiting for relay requests.",
         subnet
     );
@@ -31,13 +31,13 @@ pub fn run_coinslot(mut ws: WebSocket<Box<dyn ReadWrite + Send>>, subnet: String
         match rx.try_recv() {
             Ok(req) => {
                 if req.command == "ACK" {
-                    println!("[CS:{}] Relaying ACK to ESP device…", subnet);
+                    crate::debug_println!("[CS:{}] Relaying ACK to ESP device…", subnet);
 
                     if ws
                         .send(Message::Text("{\"type\":\"ACK\"}".to_string().into()))
                         .is_err()
                     {
-                        println!(
+                        crate::debug_println!(
                             "[CS:{}] Failed to send ACK to ESP — connection dead.",
                             subnet
                         );
@@ -61,7 +61,7 @@ pub fn run_coinslot(mut ws: WebSocket<Box<dyn ReadWrite + Send>>, subnet: String
             }
             Err(mpsc::TryRecvError::Empty) => {}
             Err(mpsc::TryRecvError::Disconnected) => {
-                println!("[CS:{}] Relay channel dropped — cleaning up.", subnet);
+                crate::debug_println!("[CS:{}] Relay channel dropped — cleaning up.", subnet);
                 break;
             }
         }
@@ -71,16 +71,16 @@ pub fn run_coinslot(mut ws: WebSocket<Box<dyn ReadWrite + Send>>, subnet: String
                 let txt = msg.to_text().unwrap_or("");
                 match try_decrypt_esp_msg(txt) {
                     Some(plain) => {
-                        println!("[CS:{}] Message from ESP: {}", subnet, plain);
+                        crate::debug_println!("[CS:{}] Message from ESP: {}", subnet, plain);
                         handle_esp_message(&plain, &subnet);
                     }
                     None => {
-                        println!("[CS:{}] Rejected unencrypted/invalid message.", subnet);
+                        crate::debug_println!("[CS:{}] Rejected unencrypted/invalid message.", subnet);
                     }
                 }
             }
             Ok(msg) if msg.is_close() => {
-                println!("[CS:{}] ESP closed the connection.", subnet);
+                crate::debug_println!("[CS:{}] ESP closed the connection.", subnet);
                 break;
             }
             Ok(_) => {}
@@ -91,7 +91,7 @@ pub fn run_coinslot(mut ws: WebSocket<Box<dyn ReadWrite + Send>>, subnet: String
                 std::thread::sleep(Duration::from_millis(20));
             }
             Err(e) => {
-                println!("[CS:{}] Read error: {} — disconnecting.", subnet, e);
+                crate::debug_println!("[CS:{}] Read error: {} — disconnecting.", subnet, e);
                 break;
             }
         }
@@ -100,7 +100,7 @@ pub fn run_coinslot(mut ws: WebSocket<Box<dyn ReadWrite + Send>>, subnet: String
     // Clean up the sender so user threads don't try to use a stale entry.
     get_coinslot_senders().lock().unwrap().remove(&subnet);
 
-    println!("[CS:{}] Coinslot thread exiting.", subnet);
+    crate::debug_println!("[CS:{}] Coinslot thread exiting.", subnet);
 }
 
 /// Block (with timeout) reading from `ws` until we get a response that tells
@@ -115,17 +115,17 @@ pub fn wait_for_coinslot_ack(
         match ws.read() {
             Ok(msg) if msg.is_text() => {
                 let txt = msg.to_text().unwrap_or("");
-                println!("[CS relay] ESP raw reply received");
+                crate::debug_println!("[CS relay] ESP raw reply received");
 
                 let plain = match try_decrypt_esp_msg(txt) {
                     Some(p) => p,
                     None => {
-                        println!("[CS relay] Rejected unencrypted reply — still waiting…");
+                        crate::debug_println!("[CS relay] Rejected unencrypted reply — still waiting…");
                         continue;
                     }
                 };
 
-                println!("[CS relay] ESP decrypted reply: {}", plain);
+                crate::debug_println!("[CS relay] ESP decrypted reply: {}", plain);
                 if let Ok(doc) = serde_json::from_str::<serde_json::Value>(&plain) {
                     let t = doc["type"].as_str().unwrap_or("");
                     if t == "ACK_SUCCESS"
@@ -163,19 +163,44 @@ pub fn wait_for_coinslot_ack(
 }
 
 pub fn try_decrypt_esp_msg(txt: &str) -> Option<String> {
-    let enc = serde_json::from_str::<EncryptedPayload>(txt).ok()?;
-    let bytes = base64::engine::general_purpose::STANDARD
-        .decode(&enc.payload)
-        .ok()?;
-    decrypt_payload(&bytes, &key_bytes()).ok()
+    let enc = match serde_json::from_str::<EncryptedPayload>(txt) {
+        Ok(e) => e,
+        Err(e) => {
+            crate::debug_println!("[CS-DEBUG] JSON parse failed: {:?}", e);
+            return None;
+        }
+    };
+
+    let bytes = match base64::engine::general_purpose::STANDARD.decode(&enc.payload) {
+        Ok(b) => b,
+        Err(e) => {
+            crate::debug_println!("[CS-DEBUG] Base64 decode failed: {:?}", e);
+            return None;
+        }
+    };
+
+    if let Some(coinslot_key) = get_coinslot_key_bytes() {
+        match decrypt_payload(&bytes, &coinslot_key) {
+            Ok(plain) => {
+                crate::debug_println!("[CS-DEBUG] Decryption successful!");
+                return Some(plain);
+            }
+            Err(e) => {
+                crate::debug_println!("[CS-DEBUG] Decryption failed: {:?}", e);
+            }
+        }
+    } else {
+        crate::debug_println!("[CS-DEBUG] No coinslot key found in database!");
+    }
+    None
 }
 
 pub fn handle_esp_message(txt: &str, subnet: &str) {
     if let Ok(mut doc) = serde_json::from_str::<WsMessage>(txt) {
         match doc.msg_type.as_str() {
             "ping" => {} // Heartbeat — silently ignored, only used to unblock ws.read()
-            "init" => println!("[CS:{}] ESP init: {:?}", subnet, doc.value),
-            "res" => println!("[CS:{}] ESP slot response: {:?}", subnet, doc.value),
+            "init" => crate::debug_println!("[CS:{}] ESP init: {:?}", subnet, doc.value),
+            "res" => crate::debug_println!("[CS:{}] ESP slot response: {:?}", subnet, doc.value),
             "timer" => {
                 let active_map = ACTIVE_USER.lock().unwrap();
                 if let Some(mac) = active_map.get(subnet) {
@@ -184,7 +209,7 @@ pub fn handle_esp_message(txt: &str, subnet: &str) {
                 }
             }
             "notify" => {
-                println!("[CS:{}] ESP coin pulse detected", subnet);
+                crate::debug_println!("[CS:{}] ESP coin pulse detected", subnet);
                 let active_map = ACTIVE_USER.lock().unwrap();
                 if let Some(mac) = active_map.get(subnet) {
                     let mut events = USER_EVENTS.lock().unwrap();
@@ -197,29 +222,30 @@ pub fn handle_esp_message(txt: &str, subnet: &str) {
                     Some(v) if v.is_string() => v.as_str().unwrap().parse().unwrap_or(0),
                     _ => 0,
                 };
-                println!("[CS:{}] ESP coin inserted, amount: {}", subnet, amount);
+                crate::debug_println!("[CS:{}] ESP coin inserted, amount: {}", subnet, amount);
 
                 let active_map = ACTIVE_USER.lock().unwrap();
                 if let Some(mac) = active_map.get(subnet) {
                     let seconds = convert_amount_to_time(amount);
                     if seconds > 0 {
+                        record_sale(amount);
                         if let Ok(user) = add_time_to_user(mac, seconds) {
                             if !user.paused {
                                 allow_mac(mac);
                             }
                             doc.time = Some(serde_json::json!(seconds));
-                            println!(
+                            crate::debug_println!(
                                 "[CS:{}] Credited {} seconds to MAC {}",
                                 subnet, seconds, mac
                             );
                         } else {
-                            println!(
+                            crate::debug_println!(
                                 "[CS:{}] Failed to credit time: user {} not found",
                                 subnet, mac
                             );
                         }
                     } else {
-                        println!(
+                        crate::debug_println!(
                             "[CS:{}] Warning: 0 seconds calculated for amount {}. Are rates set?",
                             subnet, amount
                         );
@@ -230,7 +256,7 @@ pub fn handle_esp_message(txt: &str, subnet: &str) {
                     events.entry(mac.clone()).or_insert_with(Vec::new).push(doc);
                 }
             }
-            other => println!("[CS:{}] Unknown ESP message type: {}", subnet, other),
+            other => crate::debug_println!("[CS:{}] Unknown ESP message type: {}", subnet, other),
         }
     }
 }

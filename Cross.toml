@@ -1,6 +1,7 @@
 [target.mips-unknown-linux-musl]
 image = "ghcr.io/cross-rs/mips-unknown-linux-musl:main"
 build-std = ["core", "alloc", "std", "panic_abort"]
+rustflags = ["-C", "strip=symbols", "-C", "opt-level=z", "-C", "lto=true"]
 
 [build]
 # Use pre-built binaries where available to avoid build script GLIBC issues

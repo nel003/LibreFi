@@ -23,7 +23,7 @@ import type { UserType } from "../types/user";
 import type { RateType } from "../types/rates";
 import { formatSeconds } from "#lib/utils";
 
-function toggleTheme() {
+export function toggleTheme() {
     const theme = window.localStorage.getItem("theme") || "light";
     const n = (theme === "light" ? "dark" : "light")
     document.documentElement.classList = n as string;
@@ -34,7 +34,7 @@ function More({ user, children }: { user: UserType | undefined, children: ReactE
     const [rates, setRates] = useState<RateType[] | null>();
 
     const getRates = useCallback(async () => {
-        const res = await fetch("/rates");
+        const res = await fetch("http://localhost:8000/api/rates");
         if (res.status === 200) {
             const json = await res.json();
             setRates(json.rows);

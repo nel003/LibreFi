@@ -52,7 +52,7 @@ pub fn index(server: &mut Server) {
                         }
                         write_txn.commit().unwrap();
 
-                        println!("-> New user registered: MAC={} IP={}", mac, req.ip);
+                        crate::debug_println!("-> New user registered: MAC={} IP={}", mac, req.ip);
                     }
                 }
             } else {

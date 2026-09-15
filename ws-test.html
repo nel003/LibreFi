@@ -216,7 +216,7 @@
         function connect() {
             // Use the current host but replace protocol with ws://
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `http://localhost:8000/ws`;
+            const wsUrl = `/ws`;
 
             ws = new WebSocket(wsUrl);
 

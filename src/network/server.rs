@@ -1,9 +1,9 @@
 use redb::ReadableDatabase;
+use rust_embed::RustEmbed;
 use std::collections::HashMap;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 use tiny_http::{Header, ReadWrite, Response as TinyResponse, Server as TinyServer};
-use rust_embed::RustEmbed;
 
 #[derive(RustEmbed)]
 #[folder = "dist"]
@@ -12,6 +12,7 @@ pub struct Asset;
 pub struct Request {
     pub body: Vec<u8>,
     pub ip: String,
+    pub query: String,
 }
 
 pub struct Response {
@@ -83,7 +84,8 @@ impl Server {
     where
         F: Fn(&Request, &mut Response) + 'static,
     {
-        self.delete_routes.insert(path.to_string(), Box::new(handler));
+        self.delete_routes
+            .insert(path.to_string(), Box::new(handler));
     }
 
     pub fn run(&self) {
@@ -94,7 +96,7 @@ impl Server {
 
             let mut parts = raw_url.splitn(2, '?');
             let mut path = parts.next().unwrap_or("/").to_string();
-            let _query = parts.next().unwrap_or("").to_string();
+            let query = parts.next().unwrap_or("").to_string();
 
             if path.len() > 1 && path.ends_with('/') {
                 path.pop();
@@ -102,7 +104,7 @@ impl Server {
 
             let method = format!("{:?}", real_request.method()).to_lowercase();
 
-            println!(
+            crate::debug_println!(
                 "-> Received {} request for: '{}' (mapped to '{}')",
                 method.to_uppercase(),
                 raw_url,
@@ -117,15 +119,10 @@ impl Server {
                 );
             }
 
-            let ip = headers
-                .get("x-forwarded-for")
-                .map(|h| h.to_string())
-                .unwrap_or_else(|| {
-                    real_request
-                        .remote_addr()
-                        .map(|addr| addr.ip().to_string())
-                        .unwrap_or_else(|| String::from("unknown"))
-                });
+            let ip = real_request
+                .remote_addr()
+                .map(|addr| addr.ip().to_string())
+                .unwrap_or_else(|| String::from("unknown"));
 
             let is_websocket_upgrade = headers
                 .get("upgrade")
@@ -170,7 +167,11 @@ impl Server {
             let mut body = Vec::new();
             let _ = real_request.as_reader().read_to_end(&mut body);
 
-            let req = Request { body, ip };
+            let req = Request {
+                body,
+                ip: ip.clone(),
+                query: query.clone(),
+            };
 
             let mut res = Response {
                 status: 404,
@@ -192,7 +193,25 @@ impl Server {
                         safe_path = String::from("index.html");
                     }
 
-                    let mut contents_res = Asset::get(&safe_path).map(|f| f.data.into_owned()).ok_or(());
+                    let supports_gzip = headers
+                        .get("accept-encoding")
+                        .map(|v| v.to_lowercase().contains("gzip"))
+                        .unwrap_or(false);
+
+                    let get_asset = |p: &str| -> Option<(Vec<u8>, bool)> {
+                        if supports_gzip {
+                            if let Some(f) = Asset::get(&format!("{}.gz", p)) {
+                                return Some((f.data.into_owned(), true));
+                            }
+                        }
+
+                        if let Some(f) = Asset::get(p) {
+                            return Some((f.data.into_owned(), false));
+                        }
+                        None
+                    };
+
+                    let mut contents_res = get_asset(&safe_path).ok_or(());
 
                     let mut is_cpd = false;
                     for cp_path in [
@@ -257,11 +276,11 @@ impl Server {
                         res.body = b"Found".to_vec();
                     } else if contents_res.is_err() {
                         safe_path = String::from("index.html");
-                        contents_res = Asset::get(&safe_path).map(|f| f.data.into_owned()).ok_or(());
+                        contents_res = get_asset(&safe_path).ok_or(());
                     }
 
                     if !handled_cpd {
-                        if let Ok(contents) = contents_res {
+                        if let Ok((contents, is_gz)) = contents_res {
                             res.status = 200;
                             res.body = contents;
 
@@ -278,6 +297,11 @@ impl Server {
                             } else if safe_path.ends_with(".woff2") {
                                 res.content_type = String::from("font/woff2");
                             }
+
+                            if is_gz {
+                                res.headers
+                                    .insert("Content-Encoding".to_string(), "gzip".to_string());
+                            }
                         } else {
                             res.status = 404;
                             res.body = b"404 - index.html not found!".to_vec();
@@ -292,7 +316,7 @@ impl Server {
                         res.body = b"500 - Internal Server Error".to_vec();
                     }
                 } else {
-                    println!("   [!] No POST route found for '{}'", path);
+                    crate::debug_println!("   [!] No POST route found for '{}'", path);
                 }
             } else if method == "put" {
                 if let Some(handler) = self.put_routes.get(&path) {
@@ -301,7 +325,7 @@ impl Server {
                         res.body = b"500 - Internal Server Error".to_vec();
                     }
                 } else {
-                    println!("   [!] No PUT route found for '{}'", path);
+                    crate::debug_println!("   [!] No PUT route found for '{}'", path);
                 }
             } else if method == "delete" {
                 if let Some(handler) = self.delete_routes.get(&path) {
@@ -310,7 +334,7 @@ impl Server {
                         res.body = b"500 - Internal Server Error".to_vec();
                     }
                 } else {
-                    println!("   [!] No DELETE route found for '{}'", path);
+                    crate::debug_println!("   [!] No DELETE route found for '{}'", path);
                 }
             } else if method == "options" {
                 res.status = 204;

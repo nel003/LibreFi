@@ -1,11 +1,11 @@
 use crate::network::server::Server;
-use crate::utils::db::{get_db, User, USERS_TABLE};
+use crate::utils::db::{USERS_TABLE, User, get_db};
 use crate::utils::get_mac_from_ip::get_mac_from_ip;
 use redb::ReadableDatabase;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn play_pause(server: &mut Server) {
-    server.post("/play_pause", |req, res| {
+    server.post("http://localhost:8000/api/play_pause", |req, res| {
         let Some(mac) = get_mac_from_ip(&req.ip) else {
             res.status = 403;
             res.body = b"{\"error\":\"Device not recognized\"}".to_vec();
@@ -48,17 +48,14 @@ pub fn play_pause(server: &mut Server) {
         const MAX_PAUSES_PER_DAY: u8 = 3;
 
         if user.paused {
-            // --- PLAY: restore remaining time ---
             let remaining = user.expires_on.saturating_sub(user.paused_on);
             user.expires_on = now + remaining;
             user.paused = false;
             user.paused_on = 0;
             action = "play";
         } else {
-            // --- PAUSE: check daily limit first ---
             let today = now / 86400;
 
-            // Reset counter if it's a new day
             if user.pause_day != today {
                 user.pause_attempts = 0;
                 user.pause_day = today;
@@ -93,26 +90,18 @@ pub fn play_pause(server: &mut Server) {
         }
         write_txn.commit().unwrap();
 
-        println!(
+        crate::debug_println!(
             "-> [{}] MAC={} paused={} expires_on={} pause_attempts={}",
             action, mac, user.paused, user.expires_on, user.pause_attempts
         );
 
         if user.paused {
-            let cmd = if crate::utils::cmds::has_command("nft") {
-                format!("nft delete element inet librefi allowed_macs {{ {} }}", mac)
-            } else {
-                format!("ipset del allowed_macs {}", mac)
-            };
+            let cmd = format!("nft delete element inet librefi allowed_macs {{ {} }}", mac);
             let _ = crate::utils::setup_captive_portal::run_sh_cmd(&cmd, true);
         } else {
             let diff = user.expires_on.saturating_sub(now);
             if diff > 0 {
-                let cmd = if crate::utils::cmds::has_command("nft") {
-                    format!("nft add element inet librefi allowed_macs {{ {} timeout {}s }}", mac, diff)
-                } else {
-                    format!("ipset add allowed_macs {} timeout {} -exist", mac, diff)
-                };
+                let cmd = format!("nft add element inet librefi allowed_macs {{ {} timeout {}s }}", mac, diff);
                 let _ = crate::utils::setup_captive_portal::run_sh_cmd(&cmd, true);
             }
         }

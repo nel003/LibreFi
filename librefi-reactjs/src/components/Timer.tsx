@@ -49,46 +49,46 @@ function NumberTicker({
                     <>
                         <div>
                             <NumberFlow className="text-primary" value={mo} format={{ minimumIntegerDigits: 2 }} />
-                            <div className="-mt-[2cqw] text-[3cqw] text-foreground/50 text-center pt-[1cqw] tracking-normal w-full">
+                            <div className="mt-[-2cqw] text-[3cqw] text-foreground/50 text-center pt-[1cqw] tracking-normal w-full">
                                 <span>MONTH</span>
                             </div>
                         </div>
-                        <div className="text-foreground/10 -mt-[6cqw]">:</div>
+                        <div className="text-foreground/10 mt-[-6cqw]">:</div>
                     </>
                 )}
                 {displayDays && (
                     <>
                         <div>
                             <NumberFlow className={displayMonths ? "text-foreground/90" : "text-primary/95"} value={d} format={{ minimumIntegerDigits: 2 }} />
-                            <div className="-mt-[2cqw] text-[3cqw] text-foreground/50 text-center pt-[1cqw] tracking-normal w-full">
+                            <div className="mt-[-2cqw] text-[3cqw] text-foreground/50 text-center pt-[1cqw] tracking-normal w-full">
                                 <span>DAY</span>
                             </div>
                         </div>
-                        <div className="text-foreground/10 -mt-[6cqw]">:</div>
+                        <div className="text-foreground/10 mt-[-6cqw]">:</div>
                     </>
                 )}
                 {displayHours && (
                     <>
                         <div>
                             <NumberFlow className={displayDays ? "text-foreground/90" : "text-primary/95"} value={h} format={{ minimumIntegerDigits: 2 }} />
-                            <div className="-mt-[2cqw] text-[3cqw] text-foreground/50 text-center pt-[1cqw] tracking-normal w-full">
+                            <div className="mt-[-2cqw] text-[3cqw] text-foreground/50 text-center pt-[1cqw] tracking-normal w-full">
                                 <span>HOUR</span>
                             </div>
                         </div>
-                        <div className="text-foreground/10 -mt-[6cqw]">:</div>
+                        <div className="text-foreground/10 mt-[-6cqw]">:</div>
                     </>
                 )}
                 {/* Minutes and seconds always display as the minimum format */}
                 <div>
                     <NumberFlow className={displayHours ? "text-foreground/90" : "text-primary/95"} value={m} format={{ minimumIntegerDigits: 2 }} />
-                    <div className="-mt-[2cqw] text-[3cqw] text-foreground/50 text-center pt-[1cqw] tracking-normal w-full">
+                    <div className="mt-[-2cqw] text-[3cqw] text-foreground/50 text-center pt-[1cqw] tracking-normal w-full">
                         <span>MIN</span>
                     </div>
                 </div>
-                <div className="text-foreground/10 -mt-[6cqw]">:</div>
+                <div className="text-foreground/10 mt-[-6cqw]">:</div>
                 <div>
                     <NumberFlow className="text-foreground/70" value={s} format={{ minimumIntegerDigits: 2 }} />
-                    <div className="-mt-[2cqw] text-[3cqw] text-foreground/50 text-center pt-[1cqw] tracking-normal w-full">
+                    <div className="mt-[-2cqw] text-[3cqw] text-foreground/50 text-center pt-[1cqw] tracking-normal w-full">
                         <span>SEC</span>
                     </div>
                 </div>
@@ -98,7 +98,7 @@ function NumberTicker({
 }
 
 const Timer = ({ user }: { user: UserType | undefined }) => {
-    const [sec, setSec] = useState(100);
+    const [sec, setSec] = useState(0);
 
     useEffect(() => {
         (() => {

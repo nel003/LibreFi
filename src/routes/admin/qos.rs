@@ -3,16 +3,103 @@ use crate::utils::db::{CONFIG_TABLE, get_db};
 use redb::ReadableDatabase;
 use serde::{Deserialize, Serialize};
 
-use super::auth::parse_admin_payload;
+use super::{LAN_SUBNET, auth::parse_admin_payload};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct QosPayload {
     pub download: f64,
     pub upload: f64,
+    #[serde(default)]
+    pub global_download: f64,
+    #[serde(default)]
+    pub global_upload: f64,
+}
+
+pub fn apply_qos(payload: &QosPayload) -> Result<(), String> {
+    let dl_kbps = (payload.download * 125.0).round() as u32;
+    let ul_kbps = (payload.upload * 125.0).round() as u32;
+    let dl_global_kbps = (payload.global_download * 125.0).round() as u32;
+    let ul_global_kbps = (payload.global_upload * 125.0).round() as u32;
+
+    let script = format!(
+        r#"
+mkdir -p /etc/nftables.d
+cat << 'EOF' > /etc/nftables.d/10-rate-limits.nft
+chain forward_qos_ingress {{
+    type filter hook forward priority filter - 1; policy accept;
+EOF
+
+ip -o -f inet addr show | awk '/br-lan/ {{print $2, $4}}' | while read -r iface subnet; do
+    dl_kbps={0}
+    dl_global={2}
+    if [ "$dl_kbps" -gt 0 ]; then
+        meter_name=$(echo "$iface" | tr '.' '_')
+        echo "    oifname \"$iface\" ip daddr $subnet meter client_dl_$meter_name {{ ip daddr limit rate over ${{dl_kbps}} kbytes/second }} drop" >> /etc/nftables.d/10-rate-limits.nft
+    fi
+    if [ "$dl_global" -gt 0 ]; then
+        echo "    oifname \"$iface\" limit rate over ${{dl_global}} kbytes/second drop" >> /etc/nftables.d/10-rate-limits.nft
+    fi
+done
+
+cat << 'EOF' >> /etc/nftables.d/10-rate-limits.nft
+}}
+
+chain forward_qos_egress {{
+    type filter hook forward priority filter - 1; policy accept;
+EOF
+
+ip -o -f inet addr show | awk '/br-lan/ {{print $2, $4}}' | while read -r iface subnet; do
+    ul_kbps={1}
+    ul_global={3}
+    if [ "$ul_kbps" -gt 0 ]; then
+        meter_name=$(echo "$iface" | tr '.' '_')
+        echo "    iifname \"$iface\" ip saddr $subnet meter client_ul_$meter_name {{ ip saddr limit rate over ${{ul_kbps}} kbytes/second }} drop" >> /etc/nftables.d/10-rate-limits.nft
+    fi
+    if [ "$ul_global" -gt 0 ]; then
+        echo "    iifname \"$iface\" limit rate over ${{ul_global}} kbytes/second drop" >> /etc/nftables.d/10-rate-limits.nft
+    fi
+done
+
+cat << 'EOF' >> /etc/nftables.d/10-rate-limits.nft
+}}
+EOF
+
+if command -v uci >/dev/null 2>&1; then
+    if uci show firewall | grep -q "/etc/nftables.d/10-rate-limits.nft"; then
+        /etc/init.d/firewall restart
+    else
+        uci add firewall include
+        uci set firewall.@include[-1].path='/etc/nftables.d/10-rate-limits.nft'
+        uci set firewall.@include[-1].reload='1'
+        uci commit firewall
+        /etc/init.d/firewall restart
+    fi
+fi
+"#,
+        dl_kbps, ul_kbps, dl_global_kbps, ul_global_kbps
+    );
+
+    match std::process::Command::new("sh")
+        .arg("-c")
+        .arg(&script)
+        .output()
+    {
+        Ok(output) => {
+            if !output.status.success() {
+                let err = String::from_utf8_lossy(&output.stderr);
+                return Err(format!(
+                    "Failed to apply QoS: {}",
+                    err.replace("\"", "\\\"")
+                ));
+            }
+            Ok(())
+        }
+        Err(e) => Err(format!("Failed to execute sh: {}", e)),
+    }
 }
 
 pub fn handle_qos(server: &mut Server) {
-    server.post("/admin/qos", |req, res| {
+    server.post("http://localhost:8000/api/admin/qos", |req, res| {
         let json = match parse_admin_payload(req) {
             Ok(j) => j,
             Err((status, body)) => {
@@ -42,64 +129,17 @@ pub fn handle_qos(server: &mut Server) {
         }
         write_txn.commit().unwrap();
 
-        // Convert Mbps to kbps (1 Mbps = 1000 kbps for SQM)
-        let download_kbps = (payload.download * 1000.0).round() as u32;
-        let upload_kbps = (payload.upload * 1000.0).round() as u32;
-
-        let script = format!(
-            "if [ ! -f /etc/init.d/sqm ]; then\n\
-                 if command -v apk >/dev/null 2>&1; then\n\
-                     apk update && apk add sqm-scripts\n\
-                 elif command -v opkg >/dev/null 2>&1; then\n\
-                     opkg update && opkg install sqm-scripts\n\
-                 else\n\
-                     echo \"No supported package manager found\" >&2\n\
-                     exit 1\n\
-                 fi\n\
-             fi\n\
-             uci set sqm.openfi=queue\n\
-             uci set sqm.openfi.enabled='1'\n\
-             uci set sqm.openfi.interface='br-lan'\n\
-             uci set sqm.openfi.download='{}'\n\
-             uci set sqm.openfi.upload='{}'\n\
-             uci set sqm.openfi.qdisc='cake'\n\
-             uci set sqm.openfi.script='piece_of_cake.qos'\n\
-             uci commit sqm\n\
-             mkdir -p /var/lock\n\
-             /etc/init.d/sqm enable\n\
-             /etc/init.d/sqm restart",
-            download_kbps, upload_kbps
-        );
-
-        match std::process::Command::new("sh")
-            .arg("-c")
-            .arg(&script)
-            .output()
-        {
-            Ok(output) => {
-                if !output.status.success() {
-                    let err = String::from_utf8_lossy(&output.stderr);
-                    res.status = 500;
-                    res.body = format!(
-                        "{{\"error\":\"Failed to apply QoS: {}\"}}",
-                        err.replace("\"", "\\\"")
-                    )
-                    .into_bytes();
-                    res.content_type = String::from("application/json");
-                    return;
-                }
-            }
-            Err(e) => {
-                res.status = 500;
-                res.body = format!("{{\"error\":\"Failed to execute sh: {}\"}}", e).into_bytes();
-                res.content_type = String::from("application/json");
-                return;
-            }
+        if let Err(e) = apply_qos(&payload) {
+            res.status = 500;
+            res.body = format!("{{\"error\":\"{}\"}}", e).into_bytes();
+            res.content_type = String::from("application/json");
+            return;
         }
 
-        println!(
+        crate::debug_println!(
             "-> QoS updated: Download = {} Mbps, Upload = {} Mbps",
-            payload.download, payload.upload
+            payload.download,
+            payload.upload
         );
 
         res.status = 200;
@@ -107,8 +147,8 @@ pub fn handle_qos(server: &mut Server) {
         res.content_type = String::from("application/json");
     });
 
-    server.get("/admin/qos", |req, res| {
-        if req.ip.starts_with("10.0.0.") {
+    server.get("http://localhost:8000/api/admin/qos", |req, res| {
+        if req.ip.starts_with(LAN_SUBNET) {
             res.status = 403;
             res.body = b"{\"error\":\"Admin access denied from LAN\"}".to_vec();
             res.content_type = String::from("application/json");

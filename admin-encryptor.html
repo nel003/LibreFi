@@ -1,10 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <title>openfi Admin Encryptor</title>
+  <title>librefi Admin Encryptor</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
       font-family: 'Segoe UI', system-ui, sans-serif;
       background: #0f0f0f;
@@ -15,6 +21,7 @@
       justify-content: center;
       padding: 2rem;
     }
+
     .card {
       background: #1a1a1a;
       border: 1px solid #2a2a2a;
@@ -26,9 +33,24 @@
       flex-direction: column;
       gap: 1.2rem;
     }
-    h1 { font-size: 1.1rem; color: #fff; letter-spacing: 0.05em; }
-    label { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 0.08em; display: block; margin-bottom: 0.4rem; }
-    input, textarea {
+
+    h1 {
+      font-size: 1.1rem;
+      color: #fff;
+      letter-spacing: 0.05em;
+    }
+
+    label {
+      font-size: 0.75rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      display: block;
+      margin-bottom: 0.4rem;
+    }
+
+    input,
+    textarea {
       width: 100%;
       background: #111;
       border: 1px solid #333;
@@ -39,7 +61,13 @@
       font-family: 'Consolas', monospace;
       resize: vertical;
     }
-    input:focus, textarea:focus { outline: none; border-color: #555; }
+
+    input:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #555;
+    }
+
     button {
       background: #fff;
       color: #000;
@@ -51,7 +79,11 @@
       cursor: pointer;
       transition: opacity 0.15s;
     }
-    button:hover { opacity: 0.85; }
+
+    button:hover {
+      opacity: 0.85;
+    }
+
     .result-box {
       background: #111;
       border: 1px solid #333;
@@ -64,6 +96,7 @@
       min-height: 48px;
       white-space: pre-wrap;
     }
+
     .copy-btn {
       background: #1f1f1f;
       color: #ccc;
@@ -73,14 +106,27 @@
       padding: 0.5rem 0.9rem;
       align-self: flex-start;
     }
-    .hint { font-size: 0.75rem; color: #555; }
-    .error { color: #f87171; font-size: 0.8rem; }
-    .divider { border: none; border-top: 1px solid #222; }
+
+    .hint {
+      font-size: 0.75rem;
+      color: #555;
+    }
+
+    .error {
+      color: #f87171;
+      font-size: 0.8rem;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #222;
+    }
   </style>
 </head>
+
 <body>
   <div class="card">
-    <h1>🔐 openfi Admin Encryptor</h1>
+    <h1>LibreFi Admin Encryptor</h1>
 
     <div>
       <label>Secret Key</label>
@@ -179,4 +225,5 @@
     }
   </script>
 </body>
+
 </html>

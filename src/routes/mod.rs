@@ -1,10 +1,9 @@
-pub mod index;
-pub mod status;
-pub mod play_pause;
-pub mod debug;
-pub mod init;
 pub mod admin;
+pub mod coin;
+pub mod debug;
+pub mod index;
+pub mod init;
+pub mod play_pause;
 pub mod rates;
 pub mod redeem;
-pub mod coin;
 pub mod ws;

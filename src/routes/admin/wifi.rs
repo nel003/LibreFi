@@ -5,6 +5,14 @@ use serde::{Deserialize, Serialize};
 
 use super::auth::parse_admin_payload;
 
+fn is_valid_ssid(s: &str) -> bool {
+    !s.is_empty() && s.len() <= 32 && s.chars().all(|c| c.is_alphanumeric() || " _-.!@#&".contains(c))
+}
+
+fn is_valid_wifi_key(s: &str) -> bool {
+    s.is_empty() || (s.len() >= 8 && s.len() <= 63 && s.chars().all(|c| c.is_ascii() && !c.is_ascii_control()))
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct WifiPayload {
     pub ssid_2g: String,
@@ -16,7 +24,7 @@ pub struct WifiPayload {
 }
 
 pub fn handle_wifi(server: &mut Server) {
-    server.post("/admin/wifi", |req, res| {
+    server.post("http://localhost:8000/api/admin/wifi", |req, res| {
         let json = match parse_admin_payload(req) {
             Ok(j) => j,
             Err((status, body)) => {
@@ -36,6 +44,36 @@ pub fn handle_wifi(server: &mut Server) {
                 return;
             }
         };
+
+        if !payload.disabled_2g {
+            if !is_valid_ssid(&payload.ssid_2g) {
+                res.status = 400;
+                res.body = b"{\"error\":\"Invalid 2.4GHz SSID: only alphanumeric and _-.!@#& allowed, max 32 chars\"}".to_vec();
+                res.content_type = String::from("application/json");
+                return;
+            }
+            if !is_valid_wifi_key(&payload.key_2g) {
+                res.status = 400;
+                res.body = b"{\"error\":\"Invalid 2.4GHz password: must be 8-63 ASCII chars or empty\"}".to_vec();
+                res.content_type = String::from("application/json");
+                return;
+            }
+        }
+
+        if !payload.disabled_5g {
+            if !is_valid_ssid(&payload.ssid_5g) {
+                res.status = 400;
+                res.body = b"{\"error\":\"Invalid 5GHz SSID: only alphanumeric and _-.!@#& allowed, max 32 chars\"}".to_vec();
+                res.content_type = String::from("application/json");
+                return;
+            }
+            if !is_valid_wifi_key(&payload.key_5g) {
+                res.status = 400;
+                res.body = b"{\"error\":\"Invalid 5GHz password: must be 8-63 ASCII chars or empty\"}".to_vec();
+                res.content_type = String::from("application/json");
+                return;
+            }
+        }
 
         let db = get_db();
         let write_txn = db.begin_write().unwrap();
@@ -128,7 +166,7 @@ pub fn handle_wifi(server: &mut Server) {
             Ok(output) => {
                 if !output.status.success() {
                     let err = String::from_utf8_lossy(&output.stderr);
-                    println!("-> Wifi script stderr (may be ignored): {}", err);
+                    crate::debug_println!("-> Wifi script stderr (may be ignored): {}", err);
                 }
             }
             Err(e) => {
@@ -139,15 +177,14 @@ pub fn handle_wifi(server: &mut Server) {
             }
         }
 
-        println!("-> WiFi configuration updated successfully");
+        crate::debug_println!("-> WiFi configuration updated successfully");
 
         res.status = 200;
         res.body = b"{\"ok\":true}".to_vec();
         res.content_type = String::from("application/json");
     });
 
-    server.get("/admin/wifi", |req, res| {
-        // Enforce encrypted payload even for GET
+    server.get("http://localhost:8000/api/admin/wifi", |req, res| {
         let _json = match parse_admin_payload(req) {
             Ok(j) => j,
             Err((status, body)) => {

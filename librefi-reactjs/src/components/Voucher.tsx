@@ -19,7 +19,7 @@ function Voucher({ updateUser, children }: { updateUser: (expires_on: number, no
     async function handleRedeem() {
         const redeemRequest = async () => {
             setIsRedeeming(true);
-            const res = await fetch("/redeem", {
+            const res = await fetch("http://localhost:8000/api/redeem", {
                 method: "POST",
                 body: JSON.stringify({ code })
             })
