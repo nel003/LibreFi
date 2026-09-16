@@ -1,5 +1,6 @@
 {
   "name": "librefi-reactjs",
+  "author": "Arnel Lopena",
   "private": true,
   "version": "0.0.0",
   "type": "module",

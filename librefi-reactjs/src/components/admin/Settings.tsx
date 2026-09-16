@@ -25,7 +25,7 @@ export default function AdminSettings() {
         const key = getAdminKey();
         const payload = await encrypt(key, JSON.stringify({ action: "get" }));
 
-        const resQos = await fetch("http://localhost:8000/api/admin/qos");
+        const resQos = await fetch("/api/admin/qos");
         if (resQos.ok) {
             const data = await resQos.json();
             setQos({
@@ -36,13 +36,13 @@ export default function AdminSettings() {
             });
         }
 
-        const resWifi = await fetch(`http://localhost:8000/api/admin/wifi?payload=${payload}`);
+        const resWifi = await fetch(`/api/admin/wifi?payload=${payload}`);
         if (resWifi.ok) {
             const data = await resWifi.json();
             setWifi(data);
         }
 
-        const resCoinslot = await fetch(`http://localhost:8000/api/admin/coinslot-key?payload=${payload}`);
+        const resCoinslot = await fetch(`/api/admin/coinslot-key?payload=${payload}`);
         if (resCoinslot.ok) {
             const data = await resCoinslot.json();
             setCoinslot(data);
@@ -55,7 +55,7 @@ export default function AdminSettings() {
 
     async function saveQos() {
         setLoadingQos(true);
-        const res = await fetch("http://localhost:8000/api/admin/qos", {
+        const res = await fetch("/api/admin/qos", {
             method: "POST",
             body: JSON.stringify({ payload: await encrypt(getAdminKey(), JSON.stringify(qos)) })
         });
@@ -69,7 +69,7 @@ export default function AdminSettings() {
 
     async function saveWifi() {
         setLoadingWifi(true);
-        const res = await fetch("http://localhost:8000/api/admin/wifi", {
+        const res = await fetch("/api/admin/wifi", {
             method: "POST",
             body: JSON.stringify({ payload: await encrypt(getAdminKey(), JSON.stringify(wifi)) })
         });
@@ -83,7 +83,7 @@ export default function AdminSettings() {
 
     async function generateCoinslotKey() {
         setLoadingCoinslot(true);
-        const res = await fetch("http://localhost:8000/api/admin/coinslot-key", {
+        const res = await fetch("/api/admin/coinslot-key", {
             method: "POST",
             body: JSON.stringify({ payload: await encrypt(getAdminKey(), JSON.stringify({ action: "generate" })) })
         });
@@ -109,21 +109,21 @@ export default function AdminSettings() {
                     <div className="flex flex-col md:flex-row gap-4">
                         <div className="flex-1 space-y-1.5">
                             <Label>Per-User Download (Mbps)</Label>
-                            <Input type="number" step="0.1" value={qos.download} onChange={(e) => setQos({ ...qos, download: parseFloat(e.target.value) || 0 })} />
+                            <Input type="number" step="0.1" value={qos.download || ""} placeholder="0" onChange={(e) => setQos({ ...qos, download: parseFloat(e.target.value) || 0 })} />
                         </div>
                         <div className="flex-1 space-y-1.5">
                             <Label>Per-User Upload (Mbps)</Label>
-                            <Input type="number" step="0.1" value={qos.upload} onChange={(e) => setQos({ ...qos, upload: parseFloat(e.target.value) || 0 })} />
+                            <Input type="number" step="0.1" value={qos.upload || ""} placeholder="0" onChange={(e) => setQos({ ...qos, upload: parseFloat(e.target.value) || 0 })} />
                         </div>
                     </div>
                     <div className="flex flex-col md:flex-row gap-4">
                         <div className="flex-1 space-y-1.5">
                             <Label>Global Download Cap (Mbps)</Label>
-                            <Input type="number" step="0.1" value={qos.global_download} onChange={(e) => setQos({ ...qos, global_download: parseFloat(e.target.value) || 0 })} />
+                            <Input type="number" step="0.1" value={qos.global_download || ""} placeholder="0" onChange={(e) => setQos({ ...qos, global_download: parseFloat(e.target.value) || 0 })} />
                         </div>
                         <div className="flex-1 space-y-1.5">
                             <Label>Global Upload Cap (Mbps)</Label>
-                            <Input type="number" step="0.1" value={qos.global_upload} onChange={(e) => setQos({ ...qos, global_upload: parseFloat(e.target.value) || 0 })} />
+                            <Input type="number" step="0.1" value={qos.global_upload || ""} placeholder="0" onChange={(e) => setQos({ ...qos, global_upload: parseFloat(e.target.value) || 0 })} />
                         </div>
                     </div>
                 </div>
@@ -138,7 +138,7 @@ export default function AdminSettings() {
                             <DialogHeader>
                                 <DialogTitle>Apply QoS Settings?</DialogTitle>
                                 <DialogDescription>
-                                    Are you sure you want to apply these Quality of Service settings? This will immediately affect network bandwidth for connected users.
+                                    This will immediately affect network bandwidth for connected users.
                                 </DialogDescription>
                             </DialogHeader>
                             <DialogFooter>
@@ -261,7 +261,7 @@ export default function AdminSettings() {
                             <DialogHeader>
                                 <DialogTitle>Generate New Coinslot Key?</DialogTitle>
                                 <DialogDescription>
-                                    Are you sure you want to generate a new authentication key? This action will permanently invalidate your current coinslot module key, and it will stop working until you re-flash it with the new key.
+                                    This action will permanently invalidate your current coinslot module key, and it will stop working until you reset it and apply the new key.
                                 </DialogDescription>
                             </DialogHeader>
                             <DialogFooter>

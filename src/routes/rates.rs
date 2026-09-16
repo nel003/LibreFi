@@ -3,7 +3,7 @@ use crate::utils::db::{RATES_TABLE, get_db};
 use redb::{ReadableDatabase, ReadableTable};
 
 pub fn rates(server: &mut Server) {
-    server.get("http://localhost:8000/api/rates", |_req, res| {
+    server.get("/api/rates", |_req, res| {
         let db = get_db();
         let read_txn = db.begin_read().unwrap();
         let table = read_txn.open_table(RATES_TABLE).unwrap();

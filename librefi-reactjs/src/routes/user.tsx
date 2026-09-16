@@ -14,7 +14,7 @@ function User() {
     const [status, setStatus] = useState("--");
 
     const init = useCallback(async () => {
-        const res = await fetch(`http://localhost:8000/api/init?_=${Date.now()}`, {
+        const res = await fetch(`/api/init?_=${Date.now()}`, {
             method: "GET"
         });
 
@@ -77,7 +77,7 @@ function User() {
 
     async function handlePlayPause() {
         const playPauseRequest = async () => {
-            const res = await fetch("http://localhost:8000/api/play_pause", {
+            const res = await fetch("/api/play_pause", {
                 method: "POST"
             });
 
@@ -138,7 +138,11 @@ function User() {
 
     return (
         <>
-            <div className="grid place-items-center h-screen [@supports(height:100dvh)]:h-dvh w-screen">
+            <div className="grid place-items-center h-screen [@supports(height:100dvh)]:h-dvh w-screen relative">
+                <div className="absolute bottom-0 w-full text-center text-foreground/80">
+                    <p className="p-2 text-xs">©{new Date().getFullYear()} LibreFi by <a className="text-foreground underline decoration-primary underline-offset-2" href="https://github.com/nel003/LibreFi">@nel003</a></p>
+                </div>
+
                 <div className="max-w-lg w-full p-6">
                     <h1 className="text-center pb-8 text-sm flex items-center justify-center ">{status} {status === "Testing" ? <span className="pl-1 "> <Loader2Icon size={16} className="animate-spin " /></span> : <></>} </h1>
 

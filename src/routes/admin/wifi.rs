@@ -6,11 +6,17 @@ use serde::{Deserialize, Serialize};
 use super::auth::parse_admin_payload;
 
 fn is_valid_ssid(s: &str) -> bool {
-    !s.is_empty() && s.len() <= 32 && s.chars().all(|c| c.is_alphanumeric() || " _-.!@#&".contains(c))
+    !s.is_empty()
+        && s.len() <= 32
+        && s.chars()
+            .all(|c| c.is_alphanumeric() || " _-.!@#&".contains(c))
 }
 
 fn is_valid_wifi_key(s: &str) -> bool {
-    s.is_empty() || (s.len() >= 8 && s.len() <= 63 && s.chars().all(|c| c.is_ascii() && !c.is_ascii_control()))
+    s.is_empty()
+        || (s.len() >= 8
+            && s.len() <= 63
+            && s.chars().all(|c| c.is_ascii() && !c.is_ascii_control()))
 }
 
 #[derive(Serialize, Deserialize)]
@@ -24,7 +30,7 @@ pub struct WifiPayload {
 }
 
 pub fn handle_wifi(server: &mut Server) {
-    server.post("http://localhost:8000/api/admin/wifi", |req, res| {
+    server.post("/api/admin/wifi", |req, res| {
         let json = match parse_admin_payload(req) {
             Ok(j) => j,
             Err((status, body)) => {
@@ -184,7 +190,7 @@ pub fn handle_wifi(server: &mut Server) {
         res.content_type = String::from("application/json");
     });
 
-    server.get("http://localhost:8000/api/admin/wifi", |req, res| {
+    server.get("/api/admin/wifi", |req, res| {
         let _json = match parse_admin_payload(req) {
             Ok(j) => j,
             Err((status, body)) => {

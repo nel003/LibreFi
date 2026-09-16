@@ -32,7 +32,7 @@ export default function CreateUpdateRate({ getRates, id, price, time, btn }: { g
 
         if (fields?.price && fields?.time) {
             const payload = id ? { id, price: fields.price, time: fields.time } : { price: fields.price, time: fields.time }
-            const res = await fetch("http://localhost:8000/api/admin/rates", {
+            const res = await fetch("/api/admin/rates", {
                 method: id ? "PUT" : "POST",
                 body: JSON.stringify({ payload: await encrypt(getAdminKey(), JSON.stringify(payload)) })
             })

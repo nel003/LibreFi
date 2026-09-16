@@ -11,13 +11,17 @@ use crate::routes::{
 fn main() {
     let mut server = Server::new(80);
     utils::db::init_db("/etc/librefi/data.redb");
-    utils::setup_captive_portal::setup_captive_portal("br-lan", "phy0-sta0", "10.0.0.1", "5353");
+    let wan_iface = utils::setup_captive_portal::detect_wan_iface();
+    utils::setup_captive_portal::setup_captive_portal("br-lan", &wan_iface, "10.0.0.1", "5353");
     utils::setup_captive_portal::authorize_active_users();
     utils::setup_captive_portal::restore_qos_settings();
 
+    if std::env::var("LIBREFI_DEBUG").unwrap_or_default() == "true" {
+        debug(&mut server);
+    }
+
     index(&mut server);
     play_pause(&mut server);
-    debug(&mut server);
     init(&mut server);
     admin(&mut server);
     rates(&mut server);

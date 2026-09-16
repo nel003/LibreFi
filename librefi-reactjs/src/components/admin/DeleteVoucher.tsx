@@ -11,7 +11,7 @@ export default function DeleteVoucher({ code, getVouchers }: { code: string, get
 
     async function handleDelete() {
         setLoading(true)
-        const res = await fetch("http://localhost:8000/api/admin/vouchers", {
+        const res = await fetch("/api/admin/vouchers", {
             method: "DELETE",
             body: JSON.stringify({ payload: await encrypt(getAdminKey(), JSON.stringify({ code })) })
         })

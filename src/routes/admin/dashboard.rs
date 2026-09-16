@@ -6,7 +6,7 @@ use std::process::Command;
 use std::time::SystemTime;
 
 pub fn handle_dashboard(server: &mut Server) {
-    server.get("http://localhost:8000/api/admin/dashboard", |req, res| {
+    server.get("/api/admin/dashboard", |req, res| {
         let _json = match parse_admin_payload(req) {
             Ok(j) => j,
             Err((status, body)) => {

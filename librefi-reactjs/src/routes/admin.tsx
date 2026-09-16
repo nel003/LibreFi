@@ -19,7 +19,7 @@ function AdminLogin() {
 
     async function login(k: string, p: string) {
         setIsLoading(true)
-        const res = await fetch("http://localhost:8000/api/admin/dashboard?payload=" + await encrypt(k, p));
+        const res = await fetch("/api/admin/dashboard?payload=" + await encrypt(k, p));
         if (res.ok) {
             window.localStorage.setItem("adminkey", k);
             setLocation("/dashboard");

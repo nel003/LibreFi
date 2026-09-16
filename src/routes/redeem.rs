@@ -65,7 +65,7 @@ fn clear_fail_count(mac: &str) {
 }
 
 pub fn redeem(server: &mut Server) {
-    server.post("http://localhost:8000/api/redeem", |req, res| {
+    server.post("/api/redeem", |req, res| {
         if req.body.len() > 65536 {
             res.status = 413;
             res.body = b"{\"error\":\"Payload too large\"}".to_vec();

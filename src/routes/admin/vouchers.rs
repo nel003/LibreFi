@@ -1,5 +1,5 @@
 use crate::network::server::Server;
-use crate::utils::db::{get_db, Voucher, VOUCHERS_TABLE};
+use crate::utils::db::{VOUCHERS_TABLE, Voucher, get_db};
 use serde::Deserialize;
 
 use super::auth::parse_admin_payload;
@@ -45,7 +45,10 @@ fn generate_random_code() -> String {
     #[cfg(not(unix))]
     {
         // Fallback: mix of multiple timestamps
-        let t1 = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let t1 = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         let bytes = t1.to_ne_bytes();
         buf.copy_from_slice(&bytes[..6]);
     }
@@ -56,7 +59,7 @@ fn generate_random_code() -> String {
 }
 
 pub fn handle_vouchers(server: &mut Server) {
-    server.get("http://localhost:8000/api/admin/vouchers", |req, res| {
+    server.get("/api/admin/vouchers", |req, res| {
         let json = match parse_admin_payload(req) {
             Ok(j) => j,
             Err((status, body)) => {
@@ -115,7 +118,7 @@ pub fn handle_vouchers(server: &mut Server) {
         res.body = serde_json::to_vec(&resp).unwrap();
         res.content_type = String::from("application/json");
     });
-    server.post("http://localhost:8000/api/admin/vouchers", |req, res| {
+    server.post("/api/admin/vouchers", |req, res| {
         let json = match parse_admin_payload(req) {
             Ok(j) => j,
             Err((status, body)) => {
@@ -146,7 +149,12 @@ pub fn handle_vouchers(server: &mut Server) {
             price: payload.price,
             time: payload.time,
             used: false,
-            created_at: Some(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()),
+            created_at: Some(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+            ),
         };
 
         let json_value = serde_json::to_string(&voucher).unwrap();
@@ -169,7 +177,7 @@ pub fn handle_vouchers(server: &mut Server) {
         res.content_type = String::from("application/json");
     });
 
-    server.delete("http://localhost:8000/api/admin/vouchers", |req, res| {
+    server.delete("/api/admin/vouchers", |req, res| {
         let json = match parse_admin_payload(req) {
             Ok(j) => j,
             Err((status, body)) => {
@@ -204,7 +212,11 @@ pub fn handle_vouchers(server: &mut Server) {
         crate::debug_println!("-> Voucher [code={}] deleted: {}", payload.code, deleted);
 
         res.status = 200;
-        res.body = format!("{{\"ok\":true,\"code\":\"{}\",\"deleted\":{}}}", payload.code, deleted).into_bytes();
+        res.body = format!(
+            "{{\"ok\":true,\"code\":\"{}\",\"deleted\":{}}}",
+            payload.code, deleted
+        )
+        .into_bytes();
         res.content_type = String::from("application/json");
     });
 }

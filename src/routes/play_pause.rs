@@ -5,7 +5,7 @@ use redb::ReadableDatabase;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub fn play_pause(server: &mut Server) {
-    server.post("http://localhost:8000/api/play_pause", |req, res| {
+    server.post("/api/play_pause", |req, res| {
         let Some(mac) = get_mac_from_ip(&req.ip) else {
             res.status = 403;
             res.body = b"{\"error\":\"Device not recognized\"}".to_vec();

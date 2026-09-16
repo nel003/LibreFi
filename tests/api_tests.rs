@@ -42,7 +42,7 @@ fn query_string(payload: &str) -> String {
 fn test_get_dashboard() {
     let payload = encrypt_payload(ADMIN_KEY, json!({"id": 1}));
     let url = format!(
-        "{}http://localhost:8000/api/admin/dashboard?payload={}",
+        "{}/api/admin/dashboard?payload={}",
         BASE_URL,
         query_string(&payload)
     );
@@ -61,14 +61,14 @@ fn test_rates_crud() {
             "time": 3600
         }),
     );
-    let url = format!("{}http://localhost:8000/api/admin/rates", BASE_URL);
+    let url = format!("{}/api/admin/rates", BASE_URL);
     let post_res = ureq::post(&url).send_json(json!({"payload": post_payload}));
     assert!(post_res.is_ok(), "Failed to POST rate");
 
     // 2. GET Rates
     let get_payload = encrypt_payload(ADMIN_KEY, json!({"id": 1}));
     let get_url = format!(
-        "{}http://localhost:8000/api/admin/rates?payload={}",
+        "{}/api/admin/rates?payload={}",
         BASE_URL,
         query_string(&get_payload)
     );
@@ -97,7 +97,7 @@ fn test_rates_crud() {
 fn test_get_users() {
     let payload = encrypt_payload(ADMIN_KEY, json!({"id": 1}));
     let url = format!(
-        "{}http://localhost:8000/api/admin/users?payload={}",
+        "{}/api/admin/users?payload={}",
         BASE_URL,
         query_string(&payload)
     );
@@ -117,7 +117,7 @@ fn test_post_qos() {
             "global_upload": 50.0
         }),
     );
-    let url = format!("{}http://localhost:8000/api/admin/qos", BASE_URL);
+    let url = format!("{}/api/admin/qos", BASE_URL);
     let _response = ureq::post(&url).send_json(json!({"payload": payload}));
 }
 
@@ -134,7 +134,7 @@ fn test_post_wifi() {
             "disabled_5g": false
         }),
     );
-    let url = format!("{}http://localhost:8000/api/admin/wifi", BASE_URL);
+    let url = format!("{}/api/admin/wifi", BASE_URL);
     let _response = ureq::post(&url).send_json(json!({"payload": payload}));
 }
 
@@ -143,7 +143,7 @@ fn test_vouchers() {
     // 1. GET Vouchers
     let payload = encrypt_payload(ADMIN_KEY, json!({"id": 1}));
     let url = format!(
-        "{}http://localhost:8000/api/admin/vouchers?payload={}",
+        "{}/api/admin/vouchers?payload={}",
         BASE_URL,
         query_string(&payload)
     );
@@ -157,13 +157,13 @@ fn test_vouchers() {
             "time": 3600
         }),
     );
-    let post_url = format!("{}http://localhost:8000/api/admin/vouchers", BASE_URL);
+    let post_url = format!("{}/api/admin/vouchers", BASE_URL);
     let _post_res = ureq::post(&post_url).send_json(json!({"payload": post_payload}));
 }
 
 #[test]
 fn test_post_coinslot_key() {
     let payload = encrypt_payload(ADMIN_KEY, json!({"id": 1}));
-    let url = format!("{}http://localhost:8000/api/admin/coinslot/key", BASE_URL);
+    let url = format!("{}/api/admin/coinslot/key", BASE_URL);
     let _response = ureq::post(&url).send_json(json!({"payload": payload}));
 }

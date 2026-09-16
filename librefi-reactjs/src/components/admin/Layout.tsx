@@ -29,12 +29,14 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
         { path: "/settings", icon: Cog, label: "Settings" }
     ];
 
-    const headText = {
+    const headText: Record<string, string[]> = {
         "/dashboard": ["Dashboard", "View analytics and monitor system status."],
         "/users": ["Users", "Manage and monitor user accounts and information."],
         "/vouch_rates": ["Vouchers & Rates", "Create and manage access vouchers, rates, and pricing options."],
         "/settings": ["Settings", "Manage system configurations, WiFi access points, and quality of service."],
     }
+
+    const [pageTitle, pageDesc] = headText[location] ?? ["", ""];
 
     return (
         <div className="h-screen [@supports(height:100dvh)]:h-dvh w-screen relative bg-background text-foreground overflow-hidden">
@@ -47,8 +49,8 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
             <div className="absolute top-1 w-full">
                 <div className="max-w-5xl mx-auto p-4 py-3 bg-background/5 backdrop-blur-md flex">
                     <div className="grow">
-                        <h1 className="text-foreground font-semibold">{headText[location][0]}</h1>
-                        <p className="text-xs text-foreground/70 w-[75%]">{headText[location][1]}</p>
+                        <h1 className="text-foreground font-semibold">{pageTitle}</h1>
+                        <p className="text-xs text-foreground/70 w-[75%]">{pageDesc}</p>
                     </div>
 
                     <Popover>

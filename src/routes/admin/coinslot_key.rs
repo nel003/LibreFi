@@ -58,7 +58,7 @@ pub fn get_coinslot_key_bytes() -> Option<[u8; 32]> {
 }
 
 pub fn handle_coinslot_key(server: &mut Server) {
-    server.post("http://localhost:8000/api/admin/coinslot-key", |req, res| {
+    server.post("/api/admin/coinslot-key", |req, res| {
         // Enforce encrypted payload for authentication
         let _json = match parse_admin_payload(req) {
             Ok(j) => j,
@@ -76,10 +76,15 @@ pub fn handle_coinslot_key(server: &mut Server) {
         let db = get_db();
         let write_txn = db.begin_write().unwrap();
         {
-            let now = SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+            let now = SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
             let mut table = write_txn.open_table(CONFIG_TABLE).unwrap();
             table.insert("coinslot_key", new_key.as_str()).unwrap();
-            table.insert("coinslot_key_generated_at", now.to_string().as_str()).unwrap();
+            table
+                .insert("coinslot_key_generated_at", now.to_string().as_str())
+                .unwrap();
         }
         write_txn.commit().unwrap();
 
@@ -90,7 +95,7 @@ pub fn handle_coinslot_key(server: &mut Server) {
         res.content_type = String::from("application/json");
     });
 
-    server.get("http://localhost:8000/api/admin/coinslot-key", |req, res| {
+    server.get("/api/admin/coinslot-key", |req, res| {
         // Enforce encrypted payload even for GET
         let _json = match parse_admin_payload(req) {
             Ok(j) => j,
@@ -118,12 +123,19 @@ pub fn handle_coinslot_key(server: &mut Server) {
         }
 
         let prefix = if existing_key.len() >= 8 {
-            format!("{}...{}", &existing_key[0..4], &existing_key[existing_key.len() - 4..])
+            format!(
+                "{}...{}",
+                &existing_key[0..4],
+                &existing_key[existing_key.len() - 4..]
+            )
         } else {
             String::from("None")
         };
 
-        let resp = CoinslotKeyGetResponse { prefix, generated_at };
+        let resp = CoinslotKeyGetResponse {
+            prefix,
+            generated_at,
+        };
 
         res.status = 200;
         res.body = serde_json::to_vec(&resp).unwrap();

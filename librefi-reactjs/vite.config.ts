@@ -8,9 +8,12 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), compression({
     algorithms: ['gzip'],
     threshold: 10240,
-    deleteOriginalAssets: false,
+    deleteOriginalAssets: true,
+    include: /assets\/.*\.(js|css)$/,
   }),],
   build: {
+    outDir: '../dist',
+    emptyOutDir: true,
     cssMinify: true,
   },
 })

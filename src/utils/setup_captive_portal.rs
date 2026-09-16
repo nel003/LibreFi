@@ -4,6 +4,39 @@ use crate::utils::db::{get_db, User, USERS_TABLE, CONFIG_TABLE};
 use redb::{ReadableDatabase, ReadableTable};
 use std::time::SystemTime;
 
+pub fn detect_wan_iface() -> String {
+    if let Ok(out) = Command::new("sh")
+        .arg("-c")
+        .arg("iw dev 2>/dev/null | awk '/Interface/{iface=$2} /type managed/{print iface}'")
+        .output()
+    {
+        let iface = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if !iface.is_empty() {
+            let first = iface.lines().next().unwrap_or("").trim().to_string();
+            if !first.is_empty() {
+                return first;
+            }
+        }
+    }
+    for key in &["network.wan.ifname", "network.wan.device"] {
+        if let Ok(out) = Command::new("uci")
+            .arg("-q")
+            .arg("get")
+            .arg(key)
+            .output()
+        {
+            let iface = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            if !iface.is_empty() {
+                return iface;
+            }
+        }
+    }
+
+    // Hardcoded fallback
+    eprintln!("[WARN] Could not detect WAN interface — defaulting to phy0-sta0");
+    "phy0-sta0".to_string()
+}
+
 pub fn run_sh_cmd(cmd: &str, ignore_errors: bool) -> Result<(), String> {
     let output = Command::new("sh")
         .arg("-c")

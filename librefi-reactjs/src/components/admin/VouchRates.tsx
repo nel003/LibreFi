@@ -41,7 +41,7 @@ function AdminVouchRates() {
     const [_, setLocation] = useLocation();
 
     async function getVouchers() {
-        const res = await fetch("http://localhost:8000/api/admin/vouchers?payload=" + await encrypt(getAdminKey(), JSON.stringify({ page: voucherPage })));
+        const res = await fetch("/api/admin/vouchers?payload=" + await encrypt(getAdminKey(), JSON.stringify({ page: voucherPage })));
         if (res.ok) {
             const json = await res.json();
             setVouchers(json.vouchers.map((v: VoucherT) => ({ ...v, censored: true })));
@@ -52,7 +52,7 @@ function AdminVouchRates() {
     }
 
     async function getRates() {
-        const res = await fetch("http://localhost:8000/api/rates");
+        const res = await fetch("/api/rates");
         if (res.ok) {
             const json = await res.json();
             setRates(json.rows);

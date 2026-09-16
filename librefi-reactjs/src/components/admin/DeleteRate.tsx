@@ -11,7 +11,7 @@ export default function DeleteRate({ id, price, getRates }: { id: number, price:
 
     async function handleDelete() {
         setLoading(true)
-        const res = await fetch("http://localhost:8000/api/admin/rates", {
+        const res = await fetch("/api/admin/rates", {
             method: "DELETE",
             body: JSON.stringify({ payload: await encrypt(getAdminKey(), JSON.stringify({ id })) })
         })

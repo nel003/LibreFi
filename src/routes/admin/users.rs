@@ -7,7 +7,10 @@ use super::auth::parse_admin_payload;
 
 fn is_valid_mac(mac: &str) -> bool {
     let parts: Vec<&str> = mac.split(':').collect();
-    parts.len() == 6 && parts.iter().all(|p| p.len() == 2 && p.chars().all(|c| c.is_ascii_hexdigit()))
+    parts.len() == 6
+        && parts
+            .iter()
+            .all(|p| p.len() == 2 && p.chars().all(|c| c.is_ascii_hexdigit()))
 }
 
 #[derive(Deserialize, Default)]
@@ -49,7 +52,7 @@ struct UpdateUserPayload {
 }
 
 pub fn handle_users(server: &mut Server) {
-    server.get("http://localhost:8000/api/admin/users", |req, res| {
+    server.get("/api/admin/users", |req, res| {
         let json = match parse_admin_payload(req) {
             Ok(j) => j,
             Err((status, body)) => {
@@ -116,7 +119,7 @@ pub fn handle_users(server: &mut Server) {
         res.content_type = String::from("application/json");
     });
 
-    server.post("http://localhost:8000/api/admin/users", |req, res| {
+    server.post("/api/admin/users", |req, res| {
         if req.body.len() > 65536 {
             res.status = 413;
             res.body = b"{\"error\":\"Payload too large\"}".to_vec();

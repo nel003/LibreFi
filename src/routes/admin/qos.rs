@@ -99,7 +99,7 @@ fi
 }
 
 pub fn handle_qos(server: &mut Server) {
-    server.post("http://localhost:8000/api/admin/qos", |req, res| {
+    server.post("/api/admin/qos", |req, res| {
         let json = match parse_admin_payload(req) {
             Ok(j) => j,
             Err((status, body)) => {
@@ -147,7 +147,7 @@ pub fn handle_qos(server: &mut Server) {
         res.content_type = String::from("application/json");
     });
 
-    server.get("http://localhost:8000/api/admin/qos", |req, res| {
+    server.get("/api/admin/qos", |req, res| {
         if req.ip.starts_with(LAN_SUBNET) {
             res.status = 403;
             res.body = b"{\"error\":\"Admin access denied from LAN\"}".to_vec();

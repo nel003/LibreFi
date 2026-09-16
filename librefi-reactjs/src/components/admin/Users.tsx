@@ -50,7 +50,7 @@ function AdminUsers() {
     const [totalPages, setTotalPages] = useState(1);
 
     async function getUsers() {
-        const res = await fetch("http://localhost:8000/api/admin/users?payload=" + await encrypt(getAdminKey(), JSON.stringify({ "id": 1, page })));
+        const res = await fetch("/api/admin/users?payload=" + await encrypt(getAdminKey(), JSON.stringify({ "id": 1, page })));
         if (res.ok) {
             const json = await res.json();
             setUsers(json.users);
@@ -62,7 +62,7 @@ function AdminUsers() {
 
     async function handleEdit() {
         async function post() {
-            const res = await fetch("http://localhost:8000/api/admin/users", {
+            const res = await fetch("/api/admin/users", {
                 method: "POST",
                 body: JSON.stringify({ payload: await encrypt(getAdminKey(), JSON.stringify(forEdit)) })
             })
@@ -124,7 +124,7 @@ function AdminUsers() {
                                 <TableCell className="text-sm">{String(u.paused)}</TableCell>
                                 <TableCell className="text-sm">{u.pause_attempts}</TableCell>
                                 <TableCell className="text-sm">{formatSeconds(Math.max(0, u.paused ? u.expires_on - u.paused_on : u.expires_on - Math.floor(Date.now() / 1000)))}</TableCell>
-                                <TableCell className="text-sm">
+                                <TableCell className="text-sm flex justify-end">
                                     <Popover onOpenChange={(v) => {
                                         if (v) {
                                             setForEdit({ ...u, new_expiry: Math.max(0, u.paused ? u.expires_on - u.paused_on : u.expires_on - Math.floor(Date.now() / 1000)) })

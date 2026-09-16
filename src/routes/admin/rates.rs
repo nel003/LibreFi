@@ -1,5 +1,5 @@
 use crate::network::server::Server;
-use crate::utils::db::{get_db, Rate, RATES_TABLE};
+use crate::utils::db::{RATES_TABLE, Rate, get_db};
 use redb::{ReadableDatabase, ReadableTable};
 use serde::Deserialize;
 
@@ -24,7 +24,7 @@ struct DeleteRatePayload {
 }
 
 pub fn handle_rates(server: &mut Server) {
-    server.post("http://localhost:8000/api/admin/rates", |req, res| {
+    server.post("/api/admin/rates", |req, res| {
         let json = match parse_admin_payload(req) {
             Ok(j) => j,
             Err((status, body)) => {
@@ -57,7 +57,7 @@ pub fn handle_rates(server: &mut Server) {
         let write_txn = db.begin_write().unwrap();
         {
             let mut table = write_txn.open_table(RATES_TABLE).unwrap();
-            
+
             if let Ok(iter) = table.iter() {
                 for item in iter {
                     if let Ok((k, _)) = item {
@@ -75,15 +75,12 @@ pub fn handle_rates(server: &mut Server) {
         crate::debug_println!("-> Rate [id={}] created: {}", next_id, json_value);
 
         res.status = 200;
-        res.body = format!(
-            "{{\"ok\":true,\"id\":{},\"rate\":{}}}",
-            next_id, json_value
-        )
-        .into_bytes();
+        res.body =
+            format!("{{\"ok\":true,\"id\":{},\"rate\":{}}}", next_id, json_value).into_bytes();
         res.content_type = String::from("application/json");
     });
 
-    server.put("http://localhost:8000/api/admin/rates", |req, res| {
+    server.put("/api/admin/rates", |req, res| {
         let json = match parse_admin_payload(req) {
             Ok(j) => j,
             Err((status, body)) => {
@@ -117,7 +114,8 @@ pub fn handle_rates(server: &mut Server) {
             let table = check_txn.open_table(RATES_TABLE).unwrap();
             if table.get(payload.id).unwrap().is_none() {
                 res.status = 404;
-                res.body = format!("{{\"error\":\"Rate id {} not found\"}}", payload.id).into_bytes();
+                res.body =
+                    format!("{{\"error\":\"Rate id {} not found\"}}", payload.id).into_bytes();
                 res.content_type = String::from("application/json");
                 return;
             }
@@ -130,7 +128,11 @@ pub fn handle_rates(server: &mut Server) {
         }
         write_txn.commit().unwrap();
 
-        crate::debug_println!("-> Rate [id={}] upserted via PUT: {}", payload.id, json_value);
+        crate::debug_println!(
+            "-> Rate [id={}] upserted via PUT: {}",
+            payload.id,
+            json_value
+        );
 
         res.status = 200;
         res.body = format!(
@@ -141,7 +143,7 @@ pub fn handle_rates(server: &mut Server) {
         res.content_type = String::from("application/json");
     });
 
-    server.delete("http://localhost:8000/api/admin/rates", |req, res| {
+    server.delete("/api/admin/rates", |req, res| {
         let json = match parse_admin_payload(req) {
             Ok(j) => j,
             Err((status, body)) => {
@@ -176,7 +178,11 @@ pub fn handle_rates(server: &mut Server) {
         crate::debug_println!("-> Rate [id={}] deleted: {}", payload.id, deleted);
 
         res.status = 200;
-        res.body = format!("{{\"ok\":true,\"id\":{},\"deleted\":{}}}", payload.id, deleted).into_bytes();
+        res.body = format!(
+            "{{\"ok\":true,\"id\":{},\"deleted\":{}}}",
+            payload.id, deleted
+        )
+        .into_bytes();
         res.content_type = String::from("application/json");
     });
 }

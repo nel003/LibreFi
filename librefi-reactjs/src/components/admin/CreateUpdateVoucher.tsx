@@ -32,7 +32,7 @@ export default function CreateEditVoucher({ getVouchers, code, price, time, btn 
         setLoading(true)
 
         if (fields?.price && fields?.time) {
-            const res = await fetch("http://localhost:8000/api/admin/vouchers", {
+            const res = await fetch("/api/admin/vouchers", {
                 method: "POST",
                 body: JSON.stringify({ payload: await encrypt(getAdminKey(), JSON.stringify({ code: code ? code : "RANDOM", price: fields.price, time: fields.time, used: false })) })
             })
