@@ -11,12 +11,19 @@ pub struct AdminBody {
 }
 
 pub fn parse_admin_payload(req: &Request) -> Result<String, (u16, Vec<u8>)> {
-    if req.ip.starts_with(LAN_SUBNET) {
+    let allow_lan = std::env::var("LIBREFI_ADMIN_LAN")
+        .map(|v| v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+
+    if req.ip.starts_with(LAN_SUBNET) && !allow_lan {
         return Err((
             403,
             b"{\"error\":\"Admin access denied from LAN\"}".to_vec(),
         ));
     }
+
+    let payload_str = if req.body.is_empty() && !req.query.is_empty() {
+        let mut found = String::new();
 
     let payload_str = if req.body.is_empty() && !req.query.is_empty() {
         let mut found = String::new();
